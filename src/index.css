@@ -1,0 +1,168 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    --primary: 173 80% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 20% 20%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 50%;
+
+    --accent: 173 80% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 173 80% 40%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 20% 98%;
+    --sidebar-foreground: 220 20% 30%;
+    --sidebar-primary: 173 80% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 220 20% 20%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 173 80% 40%;
+
+    /* Custom tokens */
+    --gradient-primary: linear-gradient(135deg, hsl(173 80% 40%), hsl(190 80% 50%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 20% 98%));
+    --shadow-card: 0 4px 24px -4px hsl(220 20% 10% / 0.08);
+    --shadow-hover: 0 8px 32px -4px hsl(220 20% 10% / 0.12);
+    
+    /* Widget colors */
+    --widget-tasks: 173 80% 40%;
+    --widget-habits: 262 83% 58%;
+    --widget-goals: 38 92% 50%;
+    --widget-notes: 340 82% 52%;
+    --widget-finance: 210 100% 50%;
+  }
+
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 173 80% 50%;
+    --primary-foreground: 222 47% 8%;
+
+    --secondary: 222 30% 16%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 222 30% 16%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 173 80% 50%;
+    --accent-foreground: 222 47% 8%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
+    --ring: 173 80% 50%;
+
+    --sidebar-background: 222 47% 9%;
+    --sidebar-foreground: 210 40% 90%;
+    --sidebar-primary: 173 80% 50%;
+    --sidebar-primary-foreground: 222 47% 8%;
+    --sidebar-accent: 222 30% 14%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 30% 16%;
+    --sidebar-ring: 173 80% 50%;
+
+    /* Custom tokens dark */
+    --gradient-primary: linear-gradient(135deg, hsl(173 80% 50%), hsl(190 80% 60%));
+    --gradient-card: linear-gradient(145deg, hsl(222 47% 12%), hsl(222 47% 10%));
+    --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.4);
+    --shadow-hover: 0 8px 32px -4px hsl(0 0% 0% / 0.5);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+    box-shadow: var(--shadow-card);
+  }
+
+  .glass-card-hover {
+    @apply transition-all duration-300;
+  }
+
+  .glass-card-hover:hover {
+    box-shadow: var(--shadow-hover);
+    @apply border-primary/20;
+  }
+
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .widget-glow {
+    @apply relative overflow-hidden;
+  }
+
+  .widget-glow::before {
+    content: '';
+    @apply absolute -top-1/2 -left-1/2 w-full h-full opacity-20 rounded-full blur-3xl;
+    background: var(--gradient-primary);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/30;
+}
