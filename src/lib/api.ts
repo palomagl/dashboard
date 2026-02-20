@@ -2,7 +2,7 @@
 // API Service Layer
 // ==============================================
 // Configure your backend URL here:
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://dashboard-backend-zvu0.onrender.com/api";
 
 // Helper to get auth token from localStorage
 function getToken(): string | null {
