@@ -7,6 +7,7 @@ import { GoalsWidget } from "@/components/dashboard/GoalsWidget";
 import { QuickNotes } from "@/components/dashboard/QuickNotes";
 import { RoutineCategories } from "@/components/dashboard/RoutineCategories";
 import { FinancesWidget } from "@/components/dashboard/FinancesWidget";
+import { PomodoroWidget } from "@/components/dashboard/PomodoroWidget";
 
 const Index = () => {
   return (
@@ -23,6 +24,7 @@ const Index = () => {
             {/* Left Column - Tasks & Notes */}
             <div className="lg:col-span-4 space-y-6">
               <TasksWidget />
+              <PomodoroWidget />
               <QuickNotes />
             </div>
             
