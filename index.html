@@ -5,10 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Minha Rotina - Dashboard Pessoal</title>
     <meta name="description" content="Dashboard de organização pessoal com tarefas, hábitos, finanças e metas" />
-    <meta name="author" content="Seu Nome ou Nome do App" />
+    <meta name="author" content="Paloma Lorenzon" />
+
+    <!-- Aplica o tema salvo antes da renderização para evitar flash -->
+    <script>
+      try {
+        var stored = localStorage.getItem("theme");
+        if (stored !== "light") document.documentElement.classList.add("dark");
+      } catch (e) {
+        document.documentElement.classList.add("dark");
+      }
+    </script>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/public/favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
 
     <!-- PWA Meta Tags -->
@@ -22,12 +32,11 @@
     <meta property="og:title" content="Minha Rotina - Dashboard Pessoal" />
     <meta property="og:description" content="Dashboard de organização pessoal com tarefas, hábitos, finanças e metas" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://seudominio.com/opengraph-image.png" />
+    <meta property="og:image" content="/pwa-512x512.png" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@SeuTwitter" />
-    <meta name="twitter:image" content="https://seudominio.com/opengraph-image.png" />
+    <meta name="twitter:image" content="/pwa-512x512.png" />
   </head>
 
   <body>

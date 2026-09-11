@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "robots.txt"],
+      includeAssets: ["favicon.svg", "robots.txt"],
       manifest: {
         name: "Minha Rotina - Dashboard Pessoal",
         short_name: "Minha Rotina",

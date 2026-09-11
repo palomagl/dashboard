@@ -11,11 +11,12 @@ export function QuickStats() {
     statsApi.quickStats().then(setData).catch(() => {});
   }, []);
 
+  // Classes completas e estáticas para o Tailwind conseguir detectá-las no build
   const stats = [
-    { labelKey: "statsTasksToday" as const, value: data?.tasksToday || "0/0", icon: CheckCircle2, color: "widget-tasks" },
-    { labelKey: "statsStreak" as const, value: data?.streak ?? `0 ${t("statsDays")}`, icon: Flame, color: "widget-habits" },
-    { labelKey: "statsActiveGoals" as const, value: data?.activeGoals?.toString() || "0", icon: Target, color: "widget-goals" },
-    { labelKey: "statsMonthlyBalance" as const, value: data?.monthlyBalance || "R$ 0", icon: Wallet, color: "widget-finance" },
+    { labelKey: "statsTasksToday" as const, value: data?.tasksToday || "0/0", icon: CheckCircle2, iconClass: "text-widget-tasks", bgClass: "bg-widget-tasks/10" },
+    { labelKey: "statsStreak" as const, value: data?.streak ?? `0 ${t("statsDays")}`, icon: Flame, iconClass: "text-widget-habits", bgClass: "bg-widget-habits/10" },
+    { labelKey: "statsActiveGoals" as const, value: data?.activeGoals?.toString() || "0", icon: Target, iconClass: "text-widget-goals", bgClass: "bg-widget-goals/10" },
+    { labelKey: "statsMonthlyBalance" as const, value: data?.monthlyBalance || "R$ 0", icon: Wallet, iconClass: "text-widget-finance", bgClass: "bg-widget-finance/10" },
   ];
 
   return (
@@ -33,8 +34,8 @@ export function QuickStats() {
               </p>
               <p className="text-2xl font-bold">{stat.value}</p>
             </div>
-            <div className={`p-2 rounded-lg bg-${stat.color}/10`}>
-              <stat.icon className={`w-5 h-5 text-${stat.color}`} />
+            <div className={`p-2 rounded-lg ${stat.bgClass}`}>
+              <stat.icon className={`w-5 h-5 ${stat.iconClass}`} />
             </div>
           </div>
         </div>

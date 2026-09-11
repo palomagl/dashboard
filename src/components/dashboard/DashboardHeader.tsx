@@ -1,5 +1,5 @@
 import { Calendar, Search, Sun, Moon, LogOut, User, Menu, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,18 +16,20 @@ import {
 
 export function DashboardHeader() {
   const [currentDate] = useState(new Date());
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(
+    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { locale, setLocale, t } = useLocale();
 
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
-
   const toggleTheme = () => {
-    setIsDark(!isDark);
-    document.documentElement.classList.toggle('dark');
+    const next = !document.documentElement.classList.contains("dark");
+    document.documentElement.classList.toggle("dark", next);
+    try {
+      localStorage.setItem("theme", next ? "dark" : "light");
+    } catch {}
+    setIsDark(next);
   };
 
   const localeForDate = locale === "pt" ? "pt-BR" : "en-US";

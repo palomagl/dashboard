@@ -17,7 +17,11 @@ export default function Register() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.documentElement.classList.add("dark");
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem("theme");
+    } catch {}
+    document.documentElement.classList.toggle("dark", stored !== "light");
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

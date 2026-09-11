@@ -32,7 +32,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers,
   });
 
-  if (res.status === 401) {
+  // Um 401 em endpoints de autenticação (login/registro) é credencial inválida,
+  // não sessão expirada — deixa o erro subir para a tela tratar.
+  const isAuthEndpoint = endpoint.startsWith("/auth/login") || endpoint.startsWith("/auth/register");
+  if (res.status === 401 && !isAuthEndpoint) {
     removeToken();
     window.location.href = "/login";
     throw new Error("Sessão expirada");
