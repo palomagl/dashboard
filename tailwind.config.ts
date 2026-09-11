@@ -66,6 +66,7 @@ export default {
           goals: "hsl(var(--widget-goals))",
           notes: "hsl(var(--widget-notes))",
           finance: "hsl(var(--widget-finance))",
+          focus: "hsl(var(--widget-focus))",
         },
       },
       borderRadius: {
@@ -100,6 +101,10 @@ export default {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        float: {
+          "0%, 100%": { transform: "translate(0, 0)" },
+          "50%": { transform: "translate(0, -18px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -108,6 +113,8 @@ export default {
         "scale-in": "scale-in 0.2s ease-out",
         "slide-in-right": "slide-in-right 0.3s ease-out",
         shimmer: "shimmer 2s infinite linear",
+        float: "float 7s ease-in-out infinite",
+        "float-slow": "float 10s ease-in-out infinite",
       },
     },
   },
