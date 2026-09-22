@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Target, Plus, Trash2, X, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { goalsApi, Goal } from "@/lib/api";
+import { goalsApi, Goal } from "@/lib/db";
 import { useLocale } from "@/contexts/LocaleContext";
 
 export function GoalsWidget() {

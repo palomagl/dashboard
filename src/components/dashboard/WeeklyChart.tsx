@@ -1,15 +1,34 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { statsApi, WeeklyData } from "@/lib/api";
+import { statsApi, WeeklyData } from "@/lib/db";
 import { useLocale } from "@/contexts/LocaleContext";
 
 export function WeeklyChart() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [data, setData] = useState<WeeklyData[]>([]);
 
   useEffect(() => {
     statsApi.weeklyChart().then(setData).catch(() => {});
   }, []);
+
+  // O histórico chega como "2026-09-22"; o rótulo do eixo ("seg") depende do
+  // idioma, então é a tela que traduz. O meio-dia evita que o fuso jogue a
+  // data para o dia anterior na hora de descobrir o dia da semana.
+  const comRotulo = useMemo(
+    () =>
+      data.map((d) => ({
+        ...d,
+        day: new Date(`${d.date}T12:00:00`).toLocaleDateString(
+          locale === "pt" ? "pt-BR" : "en-US",
+          { weekday: "short" }
+        ),
+      })),
+    [data, locale]
+  );
+
+  // O histórico agora sempre volta com os sete dias, então "sem dados" virou
+  // "a semana inteira zerada" — um gráfico reto no zero não informa nada.
+  const semDados = comRotulo.every((d) => d.tasks === 0 && d.habits === 0);
 
   return (
     <div className="glass-card glass-card-hover rounded-xl p-5 animate-fade-in" style={{ animationDelay: "150ms" }}>
@@ -29,14 +48,14 @@ export function WeeklyChart() {
         </div>
       </div>
 
-      {data.length === 0 ? (
+      {semDados ? (
         <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">
           {t("chartNoData")}
         </div>
       ) : (
         <div className="h-[180px] -mx-2">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
+            <AreaChart data={comRotulo}>
               <defs>
                 <linearGradient id="taskGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(173, 80%, 40%)" stopOpacity={0.3} />

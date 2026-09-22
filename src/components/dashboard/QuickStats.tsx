@@ -1,22 +1,29 @@
 import { useState, useEffect } from "react";
 import { CheckCircle2, Flame, Target, Wallet } from "lucide-react";
-import { statsApi, QuickStatsData } from "@/lib/api";
+import { statsApi, QuickStatsData } from "@/lib/db";
 import { useLocale } from "@/contexts/LocaleContext";
 
 export function QuickStats() {
   const [data, setData] = useState<QuickStatsData | null>(null);
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
 
   useEffect(() => {
     statsApi.quickStats().then(setData).catch(() => {});
   }, []);
 
+  // O saldo vem como número do Firestore; quem formata é a tela, que sabe o idioma.
+  const saldo = new Intl.NumberFormat(locale === "pt" ? "pt-BR" : "en-US", {
+    style: "currency",
+    currency: locale === "pt" ? "BRL" : "USD",
+    maximumFractionDigits: 0,
+  }).format(data?.monthlyBalance ?? 0);
+
   // Classes completas e estáticas para o Tailwind conseguir detectá-las no build
   const stats = [
     { labelKey: "statsTasksToday" as const, value: data?.tasksToday || "0/0", icon: CheckCircle2, iconClass: "text-widget-tasks", bgClass: "bg-widget-tasks/10" },
-    { labelKey: "statsStreak" as const, value: data?.streak ?? `0 ${t("statsDays")}`, icon: Flame, iconClass: "text-widget-habits", bgClass: "bg-widget-habits/10" },
+    { labelKey: "statsStreak" as const, value: `${data?.streak ?? 0} ${t("statsDays")}`, icon: Flame, iconClass: "text-widget-habits", bgClass: "bg-widget-habits/10" },
     { labelKey: "statsActiveGoals" as const, value: data?.activeGoals?.toString() || "0", icon: Target, iconClass: "text-widget-goals", bgClass: "bg-widget-goals/10" },
-    { labelKey: "statsMonthlyBalance" as const, value: data?.monthlyBalance || "R$ 0", icon: Wallet, iconClass: "text-widget-finance", bgClass: "bg-widget-finance/10" },
+    { labelKey: "statsMonthlyBalance" as const, value: saldo, icon: Wallet, iconClass: "text-widget-finance", bgClass: "bg-widget-finance/10" },
   ];
 
   return (

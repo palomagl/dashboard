@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Briefcase, Heart, GraduationCap, Home, LayoutGrid, Sparkles } from "lucide-react";
-import { tasksApi, Task } from "@/lib/api";
+import { tasksApi, Task } from "@/lib/db";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { TranslationKey } from "@/lib/translations";
 

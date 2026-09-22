@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => ({
         name: "Minha Rotina - Dashboard Pessoal",
         short_name: "Minha Rotina",
         description: "Dashboard de organização pessoal com tarefas, hábitos, finanças e metas",
-        theme_color: "#1a1a2e",
+        theme_color: "#0a0a14",
         background_color: "#0a0a14",
         display: "standalone",
         orientation: "portrait",
@@ -50,6 +50,10 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // As telas de abertura do iOS somam vários megabytes e quem as serve é
+        // o Safari, antes do app existir. Guardá-las no cache do service worker
+        // só engordaria o primeiro carregamento sem serventia nenhuma.
+        globIgnores: ["**/splash/**"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

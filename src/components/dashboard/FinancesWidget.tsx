@@ -3,11 +3,25 @@ import { Plus, Wallet, TrendingUp, TrendingDown, CreditCard, Receipt, Trash2, Pe
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { billsApi, transactionsApi, Bill, Transaction } from "@/lib/api";
+import { billsApi, transactionsApi, Bill, Transaction } from "@/lib/db";
+import { dayKey } from "@/lib/dates";
 import { useLocale } from "@/contexts/LocaleContext";
 
+/**
+ * A data da transação é guardada como "2026-09-22" para dar para somar por mês.
+ * Aqui ela vira o "22/09" curto que aparece na lista. O meio-dia evita que o
+ * fuso jogue a data para o dia anterior.
+ */
+function dataCurta(iso: string, locale: string) {
+  if (!iso) return "";
+  return new Date(`${iso}T12:00:00`).toLocaleDateString(locale === "pt" ? "pt-BR" : "en-US", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
 export function FinancesWidget() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [bills, setBills] = useState<Bill[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<"bills" | "transactions">("bills");
@@ -55,7 +69,7 @@ export function FinancesWidget() {
   const addTransaction = async () => {
     if (!newTransaction.description.trim() || !newTransaction.amount) return;
     try {
-      const t = await transactionsApi.create({ description: newTransaction.description, amount: parseFloat(newTransaction.amount), type: newTransaction.type, date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) });
+      const t = await transactionsApi.create({ description: newTransaction.description, amount: parseFloat(newTransaction.amount), type: newTransaction.type, date: dayKey() });
       setTransactions([t, ...transactions]);
       setNewTransaction({ description: "", amount: "", type: "expense" });
       setShowAddTransaction(false);
@@ -276,7 +290,7 @@ export function FinancesWidget() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{transaction.description}</p>
-                      <p className="text-xs text-muted-foreground">{transaction.date}</p>
+                      <p className="text-xs text-muted-foreground">{dataCurta(transaction.date, locale)}</p>
                     </div>
                     <span className={`text-sm font-semibold ${transaction.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
                       {transaction.type === 'income' ? '+' : '-'} R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

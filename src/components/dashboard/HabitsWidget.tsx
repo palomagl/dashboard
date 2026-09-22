@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Droplet, Dumbbell, BookOpen, Moon, Coffee, Leaf, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { habitsApi, Habit as ApiHabit } from "@/lib/api";
+import { habitsApi, Habit as ApiHabit } from "@/lib/db";
 import { useLocale } from "@/contexts/LocaleContext";
 
 const iconMap: Record<string, React.ElementType> = {

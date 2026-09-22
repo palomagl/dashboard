@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { Logo } from "@/components/Logo";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { Locale } from "@/lib/translations";
 import {
@@ -52,7 +53,8 @@ export function DashboardHeader() {
     <header className="pb-6 border-b border-border/50">
       {/* Top Row - Greeting and Actions */}
       <div className="flex items-start justify-between gap-4 mb-4">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex items-center gap-3">
+          <Logo className="w-9 h-9 shrink-0 hidden sm:block" />
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight leading-tight">
             <span className="text-foreground">{getGreeting()},</span>
             <br className="sm:hidden" />

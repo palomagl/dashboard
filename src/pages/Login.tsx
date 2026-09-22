@@ -1,16 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Logo } from "@/components/Logo";
 import {
-  LogIn,
-  Sparkles,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
   CheckSquare,
   Target,
   Wallet,
@@ -20,53 +13,67 @@ import {
   Play,
 } from "lucide-react";
 
-const REMEMBER_KEY = "mr_remember_email";
+/** A marca do Google, como as diretrizes do botão de login pedem. */
+function GoogleG() {
+  return (
+    <svg viewBox="0 0 48 48" className="w-5 h-5 shrink-0" aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
+  );
+}
 
 export default function Login() {
   const { t } = useLocale();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState(true);
-  const { login } = useAuth();
+  const { user, loading: carregandoSessao, loginWithGoogle } = useAuth();
+  const [entrando, setEntrando] = useState(false);
+  const [erro, setErro] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
-    let stored: string | null = null;
+    let salvo: string | null = null;
     try {
-      stored = localStorage.getItem("theme");
-    } catch {}
-    document.documentElement.classList.toggle("dark", stored !== "light");
-
-    try {
-      const savedEmail = localStorage.getItem(REMEMBER_KEY);
-      if (savedEmail) {
-        setEmail(savedEmail);
-        setRemember(true);
-      }
-    } catch {}
+      salvo = localStorage.getItem("theme");
+    } catch {
+      // Janela anônima ou storage bloqueado: segue no tema escuro, que é o padrão.
+    }
+    document.documentElement.classList.toggle("dark", salvo !== "light");
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  // Quem já está logada não precisa ver esta tela — inclusive ao voltar do
+  // Google por redirect, que traz a pessoa de volta em /login.
+  useEffect(() => {
+    if (!carregandoSessao && user) navigate("/", { replace: true });
+  }, [user, carregandoSessao, navigate]);
+
+  const entrar = async () => {
+    setErro("");
+    setEntrando(true);
     try {
-      await login(email, password);
-      try {
-        if (remember) {
-          localStorage.setItem(REMEMBER_KEY, email);
-        } else {
-          localStorage.removeItem(REMEMBER_KEY);
-        }
-      } catch {}
-      navigate("/");
-    } catch (err: any) {
-      setError(err.message || t("accountErrorUnknown"));
-    } finally {
-      setLoading(false);
+      await loginWithGoogle();
+      // No caminho do popup, o redirecionamento acontece no efeito acima.
+      // No caminho do redirect, a página já saiu daqui.
+    } catch (e) {
+      const codigo = (e as { code?: string }).code;
+      const cancelou =
+        codigo === "auth/popup-closed-by-user" || codigo === "auth/cancelled-popup-request";
+      setErro(cancelou ? t("loginGoogleCancelado") : t("loginGoogleError"));
+      if (!cancelou) console.error("Falha no login com Google:", e);
+      setEntrando(false);
     }
   };
 
@@ -79,7 +86,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left panel - branding */}
+      {/* Painel esquerdo - marca */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,hsl(var(--primary)/0.18),transparent)]" />
         <div
@@ -95,10 +102,7 @@ export default function Login() {
 
         <div className="relative z-10 flex flex-col justify-center px-16 xl:px-24 py-16 w-full">
           <div className="flex items-center gap-3 mb-8 animate-fade-in">
-            <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 relative">
-              <span className="absolute inset-0 rounded-2xl bg-primary/20 blur-md animate-pulse" />
-              <Sparkles className="w-8 h-8 text-primary relative" />
-            </div>
+            <Logo className="w-11 h-11" />
             <span className="text-2xl font-bold gradient-text">Minha Rotina</span>
           </div>
 
@@ -124,7 +128,6 @@ export default function Login() {
             ))}
           </div>
 
-          {/* Streak badge row */}
           <div className="flex items-center gap-3 mb-5 animate-fade-in [animation-delay:460ms] [animation-fill-mode:backwards]">
             <span className="flex items-center gap-1.5 text-xs font-semibold text-widget-focus bg-widget-focus/10 border border-widget-focus/20 rounded-full px-3 py-1.5">
               <Flame className="w-3.5 h-3.5" />
@@ -136,7 +139,7 @@ export default function Login() {
             </span>
           </div>
 
-          {/* Product preview: Pomodoro card */}
+          {/* Prévia do produto */}
           <div className="glass-card rounded-2xl p-5 max-w-sm shadow-xl shadow-black/10 border-border/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 animate-fade-in [animation-delay:540ms] [animation-fill-mode:backwards]">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
@@ -169,14 +172,10 @@ export default function Login() {
               <div className="flex-1 space-y-2">
                 <p className="text-sm font-medium text-foreground">Sessão de foco</p>
                 <p className="text-xs text-muted-foreground">Estudar para a prova de sexta</p>
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-widget-focus bg-widget-focus/10 border border-widget-focus/20 rounded-lg px-3 py-1.5 pointer-events-none"
-                >
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-widget-focus bg-widget-focus/10 border border-widget-focus/20 rounded-lg px-3 py-1.5 w-fit">
                   <Play className="w-3 h-3" />
                   Em andamento
-                </button>
+                </span>
               </div>
             </div>
 
@@ -190,112 +189,58 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right side - form */}
+      {/* Lado direito - entrar */}
       <div className="w-full lg:w-1/2 xl:w-[45%] flex items-center justify-center p-6 sm:p-8 lg:p-12 relative overflow-hidden lg:overflow-visible">
         <div className="absolute inset-0 lg:hidden bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,hsl(var(--primary)/0.12),transparent)]" />
         <div className="w-full max-w-md relative">
-          {/* Compact brand header - mobile only */}
+          {/* Marca compacta - só no celular */}
           <div className="flex lg:hidden items-center justify-center gap-2.5 mb-8 animate-fade-in">
-            <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-              <Sparkles className="w-5 h-5 text-primary" />
-            </div>
+            <Logo className="w-8 h-8" />
             <span className="text-xl font-bold gradient-text">Minha Rotina</span>
           </div>
 
           <div className="glass-card glass-card-hover rounded-2xl p-8 sm:p-10 space-y-8 animate-fade-in border-border/50 shadow-2xl shadow-black/20">
-            {/* Header - visible on mobile only as main title */}
             <div className="text-center lg:text-left space-y-2">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center mx-auto lg:mx-0 lg:hidden">
-                <LogIn className="w-7 h-7 text-primary" />
+              <div className="flex lg:hidden justify-center mb-2">
+                <Logo className="w-14 h-14" />
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{t("loginTitle")}</h1>
               <p className="text-muted-foreground text-sm">{t("loginSubtitle")}</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2 animate-fade-in">
-                  <span className="shrink-0 w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                  {error}
-                </div>
+            {erro && (
+              <div
+                role="alert"
+                className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2 animate-fade-in"
+              >
+                <span className="shrink-0 w-2 h-2 rounded-full bg-destructive" />
+                {erro}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={entrar}
+              disabled={entrando}
+              className="w-full h-12 rounded-xl font-medium bg-white text-[#1f1f1f] border border-black/10
+                flex items-center justify-center gap-3 shadow-lg shadow-black/10
+                transition-all hover:shadow-xl hover:bg-white/95 active:scale-[0.98]
+                disabled:opacity-70 disabled:cursor-not-allowed disabled:active:scale-100"
+            >
+              {entrando ? (
+                <>
+                  <span className="w-5 h-5 border-2 border-[#1f1f1f]/25 border-t-[#1f1f1f] rounded-full animate-spin" />
+                  {t("loginGoogleLoading")}
+                </>
+              ) : (
+                <>
+                  <GoogleG />
+                  {t("loginGoogle")}
+                </>
               )}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("loginEmail")}</label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                  <Input
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                    className="h-11 pl-10 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all rounded-xl"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("loginPassword")}</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                    className="h-11 pl-10 pr-10 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all rounded-xl"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? t("loginHidePassword") : t("loginShowPassword")}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+            </button>
 
-              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="w-4 h-4 rounded border-border/50 accent-primary cursor-pointer"
-                />
-                {t("loginRemember")}
-              </label>
-
-              <Button
-                type="submit"
-                className="w-full h-11 rounded-xl font-medium bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:shadow-primary/40 active:scale-[0.98]"
-                disabled={loading}
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    {t("loginLoading")}
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <LogIn className="w-4 h-4" />
-                    {t("loginButton")}
-                  </span>
-                )}
-              </Button>
-            </form>
-
-            <p className="text-center text-sm text-muted-foreground pt-2">
-              {t("loginNoAccount")}{" "}
-              <Link
-                to="/register"
-                className="text-primary font-medium hover:underline underline-offset-2 decoration-primary/50"
-              >
-                {t("loginCreateAccount")}
-              </Link>
-            </p>
+            <p className="text-center text-xs text-muted-foreground">{t("loginPrivacidade")}</p>
           </div>
 
           <p className="text-center text-xs text-muted-foreground/70 mt-6">
