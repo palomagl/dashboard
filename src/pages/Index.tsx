@@ -12,7 +12,15 @@ import { PomodoroWidget } from "@/components/dashboard/PomodoroWidget";
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-7xl py-4 sm:py-6 px-4 sm:px-6">
+      {/*
+        O topo soma a área segura ao respiro normal. Sem isso o cabeçalho
+        encosta na barra de status do iPhone, porque o viewport-fit=cover
+        (necessário para a tela de abertura) deixa o conteúdo subir até lá.
+      */}
+      <div
+        className="container max-w-7xl px-4 sm:px-6 pb-6 sm:pb-8
+          pt-[calc(env(safe-area-inset-top)+1.5rem)] sm:pt-[calc(env(safe-area-inset-top)+2rem)]"
+      >
         <DashboardHeader />
         
         <main className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">

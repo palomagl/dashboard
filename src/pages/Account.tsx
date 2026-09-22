@@ -37,7 +37,7 @@ export default function Account() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-2xl py-6 px-4 md:px-6">
+      <div className="container max-w-2xl px-4 md:px-6 pb-8 pt-[calc(env(safe-area-inset-top)+1.5rem)] md:pt-[calc(env(safe-area-inset-top)+2rem)]">
         <Link
           to="/"
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm mb-6"
