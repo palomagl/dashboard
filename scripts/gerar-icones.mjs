@@ -67,7 +67,7 @@ await icone(180, "public/apple-touch-icon.png");
 console.log("ícones do app: ok");
 
 for (const { w, h, dpr } of APARELHOS) {
-  for (const [tema, fundo] of [
+  for (const [tema, fundo] of [ // só claro: o app é claro por padrão
     ["dark", FUNDO_ESCURO],
     ["light", FUNDO_CLARO],
   ]) {

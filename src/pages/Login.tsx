@@ -40,9 +40,10 @@ export default function Login() {
     try {
       salvo = localStorage.getItem("theme");
     } catch {
-      // Janela anônima ou storage bloqueado: segue no tema escuro, que é o padrão.
+      // Janela anônima ou storage bloqueado: segue no tema claro, que é o padrão.
     }
-    document.documentElement.classList.toggle("dark", salvo !== "light");
+    // Claro por padrão. O escuro só entra para quem escolheu dentro do app.
+    document.documentElement.classList.toggle("dark", salvo === "dark");
   }, []);
 
   // Quem já está logada não precisa ver esta tela — inclusive ao voltar do
@@ -62,7 +63,21 @@ export default function Login() {
       const codigo = (e as { code?: string }).code;
       const cancelou =
         codigo === "auth/popup-closed-by-user" || codigo === "auth/cancelled-popup-request";
-      setErro(cancelou ? t("loginGoogleCancelado") : t("loginGoogleError"));
+
+      // "Tente de novo" é um conselho inútil quando tentar de novo nunca vai
+      // funcionar. Os erros de configuração ganham nome, para não custarem
+      // uma investigação inteira da próxima vez.
+      const porCodigo: Record<string, string> = {
+        "auth/unauthorized-domain": t("loginErroDominio"),
+        "auth/operation-not-allowed": t("loginErroProvedor"),
+        "auth/network-request-failed": t("loginErroRede"),
+      };
+
+      setErro(
+        cancelou
+          ? t("loginGoogleCancelado")
+          : porCodigo[codigo ?? ""] ?? t("loginGoogleError")
+      );
       if (!cancelou) console.error("Falha no login com Google:", e);
       setEntrando(false);
     }
