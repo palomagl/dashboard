@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import {
   onAuthStateChanged,
-  signInWithPopup,
+
   signInWithRedirect,
   getRedirectResult,
   signOut,
@@ -18,21 +18,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-
-/**
- * O app está rodando como aplicativo salvo na tela inicial?
- *
- * Isso decide como o login acontece: dentro do PWA em modo standalone, o
- * `signInWithPopup` abre uma janela que não volta e o login trava — no iPhone
- * principalmente. Ali o caminho é redirect.
- */
-function ehStandalone(): boolean {
-  if (typeof window === "undefined") return false;
-  const porMedia = window.matchMedia?.("(display-mode: standalone)")?.matches === true;
-  // Safari no iOS não implementa a media query acima; ele expõe esta flag.
-  const porIOS = (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return porMedia || porIOS;
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -71,25 +56,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return cancelar;
   }, []);
 
+  /**
+   * Sempre por redirecionamento, nunca por popup.
+   *
+   * O popup parece mais elegante e custa caro: o navegador pode bloqueá-lo, a
+   * política COOP corta o vínculo entre a página e a janela, fechar sem querer
+   * vira um erro, e no aplicativo da tela inicial do iPhone ele simplesmente
+   * não volta. Cada um desses vira um jeito diferente do login falhar, e todos
+   * falham em silêncio.
+   *
+   * O redirecionamento tem um caminho só, igual no computador e no celular.
+   * A página sai daqui e quem termina o login é o onAuthStateChanged, quando
+   * o app recarregar de volta do Google.
+   */
   const loginWithGoogle = async () => {
-    if (ehStandalone()) {
-      // A página sai daqui: quem termina o login é o onAuthStateChanged
-      // quando o app recarregar de volta do Google.
-      await signInWithRedirect(auth, googleProvider);
-      return;
-    }
-
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (erro) {
-      // Navegador bloqueou a janela: em vez de deixar o botão sem reação,
-      // termina o login pelo caminho que não precisa de popup.
-      if ((erro as { code?: string }).code === "auth/popup-blocked") {
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      }
-      throw erro;
-    }
+    await signInWithRedirect(auth, googleProvider);
   };
 
   const logout = async () => {
