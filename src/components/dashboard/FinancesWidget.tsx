@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { billsApi, transactionsApi, Bill, Transaction } from "@/lib/db";
 import { dayKey } from "@/lib/dates";
+import { executar, carregar } from "@/lib/acoes";
 import { useLocale } from "@/contexts/LocaleContext";
 
 /**
@@ -35,45 +36,57 @@ export function FinancesWidget() {
   const [editingTransaction, setEditingTransaction] = useState({ description: "", amount: "", type: "expense" as "income" | "expense" });
 
   useEffect(() => {
-    billsApi.list().then(setBills).catch(() => {});
-    transactionsApi.list().then(setTransactions).catch(() => {});
+    carregar(() => billsApi.list(), "contas").then((lista) => lista && setBills(lista));
+    carregar(() => transactionsApi.list(), "transações").then((lista) => lista && setTransactions(lista));
   }, []);
 
   const toggleBillPaid = async (id: string) => {
     const bill = bills.find(b => b.id === id);
     if (!bill) return;
-    try {
-      await billsApi.update(id, { paid: !bill.paid });
-      setBills(bills.map(b => b.id === id ? { ...b, paid: !b.paid } : b));
-    } catch {}
+    const salvo = await executar(
+      () => billsApi.update(id, { paid: !bill.paid }),
+      { erro: t("erroAoSalvar") }
+    );
+    if (salvo === null) return;
+    setBills(bills.map(b => b.id === id ? { ...b, paid: !b.paid } : b));
   };
 
   const deleteBill = async (id: string) => {
-    try { await billsApi.delete(id); setBills(bills.filter(b => b.id !== id)); } catch {}
+    const feito = await executar(() => billsApi.delete(id), { erro: t("erroAoExcluir") });
+    if (feito === null) return;
+    setBills(bills.filter(b => b.id !== id));
   };
 
   const deleteTransaction = async (id: string) => {
-    try { await transactionsApi.delete(id); setTransactions(transactions.filter(t => t.id !== id)); } catch {}
+    const feito = await executar(() => transactionsApi.delete(id), { erro: t("erroAoExcluir") });
+    if (feito === null) return;
+    setTransactions(transactions.filter(t => t.id !== id));
   };
 
   const addBill = async () => {
-    if (!newBill.name.trim() || !newBill.amount || !newBill.dueDate) return;
-    try {
-      const bill = await billsApi.create({ name: newBill.name, amount: parseFloat(newBill.amount), dueDate: newBill.dueDate, category: newBill.category, paid: false });
-      setBills([...bills, bill]);
-      setNewBill({ name: "", amount: "", dueDate: "", category: "Serviços" });
-      setShowAddBill(false);
-    } catch {}
+    const valor = parseFloat(newBill.amount);
+    if (!newBill.name.trim() || !Number.isFinite(valor) || !newBill.dueDate) return;
+    const bill = await executar(
+      () => billsApi.create({ name: newBill.name.trim(), amount: valor, dueDate: newBill.dueDate, category: newBill.category, paid: false }),
+      { erro: t("erroAoAdicionar") }
+    );
+    if (!bill) return;
+    setBills([...bills, bill]);
+    setNewBill({ name: "", amount: "", dueDate: "", category: "Serviços" });
+    setShowAddBill(false);
   };
 
   const addTransaction = async () => {
-    if (!newTransaction.description.trim() || !newTransaction.amount) return;
-    try {
-      const t = await transactionsApi.create({ description: newTransaction.description, amount: parseFloat(newTransaction.amount), type: newTransaction.type, date: dayKey() });
-      setTransactions([t, ...transactions]);
-      setNewTransaction({ description: "", amount: "", type: "expense" });
-      setShowAddTransaction(false);
-    } catch {}
+    const valor = parseFloat(newTransaction.amount);
+    if (!newTransaction.description.trim() || !Number.isFinite(valor)) return;
+    const criada = await executar(
+      () => transactionsApi.create({ description: newTransaction.description.trim(), amount: valor, type: newTransaction.type, date: dayKey() }),
+      { erro: t("erroAoAdicionar") }
+    );
+    if (!criada) return;
+    setTransactions([criada, ...transactions]);
+    setNewTransaction({ description: "", amount: "", type: "expense" });
+    setShowAddTransaction(false);
   };
 
   const startEditingBill = (bill: Bill) => {
@@ -82,12 +95,21 @@ export function FinancesWidget() {
   };
 
   const saveEditBill = async () => {
-    if (!editingBill.name.trim() || !editingBill.amount || !editingBillId) return;
-    try {
-      await billsApi.update(editingBillId, { name: editingBill.name, amount: parseFloat(editingBill.amount), dueDate: editingBill.dueDate, category: editingBill.category });
-      setBills(bills.map(b => b.id === editingBillId ? { ...b, name: editingBill.name, amount: parseFloat(editingBill.amount), dueDate: editingBill.dueDate, category: editingBill.category } : b));
-      setEditingBillId(null);
-    } catch {}
+    const valor = parseFloat(editingBill.amount);
+    if (!editingBill.name.trim() || !Number.isFinite(valor) || !editingBillId) return;
+    const dados = {
+      name: editingBill.name.trim(),
+      amount: valor,
+      dueDate: editingBill.dueDate,
+      category: editingBill.category,
+    };
+    const salvo = await executar(
+      () => billsApi.update(editingBillId, dados),
+      { erro: t("erroAoSalvar") }
+    );
+    if (salvo === null) return;
+    setBills(bills.map(b => b.id === editingBillId ? { ...b, ...dados } : b));
+    setEditingBillId(null);
   };
 
   const cancelEditBill = () => { setEditingBillId(null); };
@@ -98,12 +120,20 @@ export function FinancesWidget() {
   };
 
   const saveEditTransaction = async () => {
-    if (!editingTransaction.description.trim() || !editingTransaction.amount || !editingTransactionId) return;
-    try {
-      await transactionsApi.update(editingTransactionId, { description: editingTransaction.description, amount: parseFloat(editingTransaction.amount), type: editingTransaction.type });
-      setTransactions(transactions.map(t => t.id === editingTransactionId ? { ...t, description: editingTransaction.description, amount: parseFloat(editingTransaction.amount), type: editingTransaction.type } : t));
-      setEditingTransactionId(null);
-    } catch {}
+    const valor = parseFloat(editingTransaction.amount);
+    if (!editingTransaction.description.trim() || !Number.isFinite(valor) || !editingTransactionId) return;
+    const dados = {
+      description: editingTransaction.description.trim(),
+      amount: valor,
+      type: editingTransaction.type,
+    };
+    const salvo = await executar(
+      () => transactionsApi.update(editingTransactionId, dados),
+      { erro: t("erroAoSalvar") }
+    );
+    if (salvo === null) return;
+    setTransactions(transactions.map(tr => tr.id === editingTransactionId ? { ...tr, ...dados } : tr));
+    setEditingTransactionId(null);
   };
 
   const cancelEditTransaction = () => { setEditingTransactionId(null); };

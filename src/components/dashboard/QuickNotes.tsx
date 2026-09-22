@@ -3,6 +3,7 @@ import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { notesApi, Note } from "@/lib/db";
+import { executar, carregar } from "@/lib/acoes";
 import { useLocale } from "@/contexts/LocaleContext";
 
 const colors = [
@@ -20,24 +21,25 @@ export function QuickNotes() {
   const [editingContent, setEditingContent] = useState("");
 
   useEffect(() => {
-    notesApi.list().then(setNotes).catch(() => {});
+    carregar(() => notesApi.list(), "notas").then((lista) => lista && setNotes(lista));
   }, []);
 
   const addNote = async () => {
     if (!newNote.trim()) return;
     const color = colors[Math.floor(Math.random() * colors.length)];
-    try {
-      const note = await notesApi.create({ content: newNote, color });
-      setNotes([note, ...notes]);
-      setNewNote("");
-    } catch {}
+    const note = await executar(
+      () => notesApi.create({ content: newNote.trim(), color }),
+      { erro: t("erroAoAdicionar") }
+    );
+    if (!note) return;
+    setNotes([note, ...notes]);
+    setNewNote("");
   };
 
   const deleteNote = async (id: string) => {
-    try {
-      await notesApi.delete(id);
-      setNotes(notes.filter(n => n.id !== id));
-    } catch {}
+    const feito = await executar(() => notesApi.delete(id), { erro: t("erroAoExcluir") });
+    if (feito === null) return;
+    setNotes(notes.filter(n => n.id !== id));
   };
 
   const startEditing = (note: Note) => {
@@ -47,12 +49,14 @@ export function QuickNotes() {
 
   const saveEdit = async () => {
     if (!editingContent.trim() || !editingId) return;
-    try {
-      await notesApi.update(editingId, { content: editingContent });
-      setNotes(notes.map(n => n.id === editingId ? { ...n, content: editingContent } : n));
-      setEditingId(null);
-      setEditingContent("");
-    } catch {}
+    const salvo = await executar(
+      () => notesApi.update(editingId, { content: editingContent.trim() }),
+      { erro: t("erroAoSalvar") }
+    );
+    if (salvo === null) return;
+    setNotes(notes.map(n => n.id === editingId ? { ...n, content: editingContent.trim() } : n));
+    setEditingId(null);
+    setEditingContent("");
   };
 
   const cancelEdit = () => {

@@ -3,6 +3,7 @@ import { Droplet, Dumbbell, BookOpen, Moon, Coffee, Leaf, Plus, X } from "lucide
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { habitsApi, Habit as ApiHabit } from "@/lib/db";
+import { executar, carregar } from "@/lib/acoes";
 import { useLocale } from "@/contexts/LocaleContext";
 
 const iconMap: Record<string, React.ElementType> = {
@@ -18,25 +19,26 @@ export function HabitsWidget() {
   const [newIcon, setNewIcon] = useState("Leaf");
 
   useEffect(() => {
-    habitsApi.list().then(setHabits).catch(() => {});
+    carregar(() => habitsApi.list(), "hábitos").then((lista) => lista && setHabits(lista));
   }, []);
 
   const toggleHabit = async (id: string) => {
-    try {
-      const updated = await habitsApi.toggle(id);
-      setHabits(habits.map(h => h.id === id ? updated : h));
-    } catch {}
+    const atualizado = await executar(() => habitsApi.toggle(id), { erro: t("erroAoSalvar") });
+    if (!atualizado) return;
+    setHabits(habits.map(h => h.id === id ? atualizado : h));
   };
 
   const addHabit = async () => {
     if (!newName.trim()) return;
-    try {
-      const habit = await habitsApi.create({ name: newName.trim(), icon: newIcon, completed: false, streak: 0 });
-      setHabits([...habits, habit]);
-      setNewName("");
-      setNewIcon("Leaf");
-      setShowAddForm(false);
-    } catch {}
+    const habit = await executar(
+      () => habitsApi.create({ name: newName.trim(), icon: newIcon, completed: false, streak: 0 }),
+      { erro: t("erroAoAdicionar") }
+    );
+    if (!habit) return;
+    setHabits([...habits, habit]);
+    setNewName("");
+    setNewIcon("Leaf");
+    setShowAddForm(false);
   };
 
   const completedCount = habits.filter(h => h.completed).length;

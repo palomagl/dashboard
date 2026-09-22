@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { tasksApi, Task } from "@/lib/db";
+import { executar, carregar } from "@/lib/acoes";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { TranslationKey } from "@/lib/translations";
 
@@ -30,34 +31,39 @@ export function TasksWidget() {
   const [editingCategory, setEditingCategory] = useState("");
 
   useEffect(() => {
-    tasksApi.list().then(setTasks).catch(() => {});
+    carregar(() => tasksApi.list(), "tarefas").then((lista) => lista && setTasks(lista));
   }, []);
 
   const toggleTask = async (id: string) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
-    try {
-      await tasksApi.update(id, { completed: !task.completed });
-      setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-    } catch {}
+    const salvo = await executar(
+      () => tasksApi.update(id, { completed: !task.completed }),
+      { erro: t("erroAoSalvar") }
+    );
+    // Só risca a tarefa na tela depois que o banco confirmou. Mostrar
+    // concluída sem ter gravado é pior do que mostrar o erro.
+    if (salvo === null) return;
+    setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
 
   const deleteTask = async (id: string) => {
-    try {
-      await tasksApi.delete(id);
-      setTasks(tasks.filter(t => t.id !== id));
-    } catch {}
+    const feito = await executar(() => tasksApi.delete(id), { erro: t("erroAoExcluir") });
+    if (feito === null) return;
+    setTasks(tasks.filter(t => t.id !== id));
   };
 
   const addTask = async () => {
     if (!newTask.trim()) return;
-    try {
-      const task = await tasksApi.create({ title: newTask, completed: false, category: newCategory });
-      setTasks([task, ...tasks]);
-      setNewTask("");
-      setNewCategory("Geral");
-      setShowAddForm(false);
-    } catch {}
+    const task = await executar(
+      () => tasksApi.create({ title: newTask.trim(), completed: false, category: newCategory }),
+      { erro: t("erroAoAdicionar") }
+    );
+    if (!task) return;
+    setTasks([task, ...tasks]);
+    setNewTask("");
+    setNewCategory("Geral");
+    setShowAddForm(false);
   };
 
   const startEditing = (task: Task) => {
@@ -68,11 +74,13 @@ export function TasksWidget() {
 
   const saveEdit = async () => {
     if (!editingTitle.trim() || !editingId) return;
-    try {
-      await tasksApi.update(editingId, { title: editingTitle, category: editingCategory });
-      setTasks(tasks.map(t => t.id === editingId ? { ...t, title: editingTitle, category: editingCategory } : t));
-      setEditingId(null);
-    } catch {}
+    const salvo = await executar(
+      () => tasksApi.update(editingId, { title: editingTitle.trim(), category: editingCategory }),
+      { erro: t("erroAoSalvar") }
+    );
+    if (salvo === null) return;
+    setTasks(tasks.map(t => t.id === editingId ? { ...t, title: editingTitle.trim(), category: editingCategory } : t));
+    setEditingId(null);
   };
 
   const cancelEdit = () => {

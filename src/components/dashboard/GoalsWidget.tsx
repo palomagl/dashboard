@@ -3,6 +3,7 @@ import { Target, Plus, Trash2, X, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { goalsApi, Goal } from "@/lib/db";
+import { executar, carregar } from "@/lib/acoes";
 import { useLocale } from "@/contexts/LocaleContext";
 
 export function GoalsWidget() {
@@ -14,37 +15,41 @@ export function GoalsWidget() {
   const [editingGoal, setEditingGoal] = useState({ title: "", target: "", deadline: "" });
 
   useEffect(() => {
-    goalsApi.list().then(setGoals).catch(() => {});
+    carregar(() => goalsApi.list(), "metas").then((lista) => lista && setGoals(lista));
   }, []);
 
   const addGoal = async () => {
     if (!newGoal.title.trim() || !newGoal.target.trim()) return;
-    try {
-      const goal = await goalsApi.create({
-        title: newGoal.title, progress: 0,
-        target: newGoal.target, deadline: newGoal.deadline || t("goalsNoDeadline"),
-      });
-      setGoals([...goals, goal]);
-      setNewGoal({ title: "", target: "", deadline: "" });
-      setShowAddForm(false);
-    } catch {}
+    const goal = await executar(
+      () => goalsApi.create({
+        title: newGoal.title.trim(), progress: 0,
+        target: newGoal.target.trim(), deadline: newGoal.deadline.trim() || t("goalsNoDeadline"),
+      }),
+      { erro: t("erroAoAdicionar") }
+    );
+    if (!goal) return;
+    setGoals([...goals, goal]);
+    setNewGoal({ title: "", target: "", deadline: "" });
+    setShowAddForm(false);
   };
 
   const deleteGoal = async (id: string) => {
-    try {
-      await goalsApi.delete(id);
-      setGoals(goals.filter(g => g.id !== id));
-    } catch {}
+    const feito = await executar(() => goalsApi.delete(id), { erro: t("erroAoExcluir") });
+    if (feito === null) return;
+    setGoals(goals.filter(g => g.id !== id));
   };
 
   const updateProgress = async (id: string, delta: number) => {
     const goal = goals.find(g => g.id === id);
     if (!goal) return;
     const newProgress = Math.max(0, Math.min(100, goal.progress + delta));
-    try {
-      await goalsApi.update(id, { progress: newProgress });
-      setGoals(goals.map(g => g.id === id ? { ...g, progress: newProgress } : g));
-    } catch {}
+    if (newProgress === goal.progress) return;
+    const salvo = await executar(
+      () => goalsApi.update(id, { progress: newProgress }),
+      { erro: t("erroAoSalvar") }
+    );
+    if (salvo === null) return;
+    setGoals(goals.map(g => g.id === id ? { ...g, progress: newProgress } : g));
   };
 
   const startEditing = (goal: Goal) => {
@@ -54,17 +59,18 @@ export function GoalsWidget() {
 
   const saveEdit = async () => {
     if (!editingGoal.title.trim() || !editingGoal.target.trim() || !editingId) return;
-    try {
-      await goalsApi.update(editingId, {
-        title: editingGoal.title, target: editingGoal.target,
-        deadline: editingGoal.deadline || t("goalsNoDeadline"),
-      });
-      setGoals(goals.map(g => g.id === editingId
-        ? { ...g, title: editingGoal.title, target: editingGoal.target, deadline: editingGoal.deadline || t("goalsNoDeadline") }
-        : g
-      ));
-      setEditingId(null);
-    } catch {}
+    const dados = {
+      title: editingGoal.title.trim(),
+      target: editingGoal.target.trim(),
+      deadline: editingGoal.deadline.trim() || t("goalsNoDeadline"),
+    };
+    const salvo = await executar(
+      () => goalsApi.update(editingId, dados),
+      { erro: t("erroAoSalvar") }
+    );
+    if (salvo === null) return;
+    setGoals(goals.map(g => g.id === editingId ? { ...g, ...dados } : g));
+    setEditingId(null);
   };
 
   const cancelEdit = () => {
