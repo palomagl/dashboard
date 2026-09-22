@@ -55,12 +55,14 @@ export function DashboardHeader() {
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex-1 min-w-0 flex items-center gap-3">
           <Logo className="w-9 h-9 shrink-0 hidden sm:block" />
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight leading-tight">
-            <span className="text-foreground">{getGreeting()},</span>
-            <br className="sm:hidden" />
-            <Link 
-              to="/account" 
-              className="text-foreground hover:opacity-70 transition-opacity inline-block mt-1 sm:mt-0 sm:ml-1"
+          <h1 className="leading-[1.15] tracking-tight min-w-0">
+            <span className="block text-sm sm:text-base font-medium text-muted-foreground">
+              {getGreeting()},
+            </span>
+            <Link
+              to="/account"
+              className="block text-2xl sm:text-4xl font-extrabold text-foreground
+                hover:opacity-70 transition-opacity truncate"
             >
               {user?.name || t("user")}
             </Link>
