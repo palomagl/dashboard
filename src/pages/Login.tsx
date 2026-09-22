@@ -29,7 +29,7 @@ function GoogleG() {
 }
 
 export default function Login() {
-  const { t } = useLocale();
+  const { t, locale, setLocale } = useLocale();
   const { user, loading: carregandoSessao, loginWithGoogle } = useAuth();
   const [entrando, setEntrando] = useState(false);
   const [erro, setErro] = useState("");
@@ -73,15 +73,47 @@ export default function Login() {
       className="relative min-h-screen bg-background grid place-items-center px-5
         pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]"
     >
-      {/* Um brilho só, bem discreto, para a tela não ser uma chapa lisa. */}
+      {/*
+        No celular o card sozinho basta. Num monitor, ele vira um cartãozinho
+        perdido no vazio — então a tela ganha profundidade por trás dele, em
+        vez de mais informação dentro dele.
+      */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
-          className="absolute left-1/2 top-0 h-[60vh] w-[130vw] -translate-x-1/2 -translate-y-1/3
-            rounded-full bg-widget-habits/[0.08] blur-[110px]"
+          className="absolute left-1/2 top-0 h-[70vh] w-[130vw] -translate-x-1/2 -translate-y-[45%]
+            rounded-full bg-widget-habits/[0.10] blur-[110px]"
         />
+        <div
+          className="absolute right-0 bottom-0 h-[55vh] w-[70vw] translate-x-1/4 translate-y-1/3
+            rounded-full bg-widget-goals/[0.07] blur-[120px]"
+        />
+        <div
+          className="absolute left-0 bottom-1/4 h-[40vh] w-[45vw] -translate-x-1/3
+            rounded-full bg-primary/[0.05] blur-[120px]"
+        />
+        {/* Escurece as bordas, para o olho ir ao centro. */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,hsl(var(--background)/0.7)_100%)]" />
       </div>
 
-      <main className="relative w-full max-w-[400px]">
+      {/* Âncoras que dão moldura à página grande. Somem no celular. */}
+      <div className="pointer-events-auto absolute top-6 right-6 hidden sm:flex items-center gap-1 rounded-full border border-border/60 bg-card/60 p-0.5 backdrop-blur-md">
+        {(["pt", "en"] as const).map((idioma) => (
+          <button
+            key={idioma}
+            type="button"
+            onClick={() => setLocale(idioma)}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+              locale === idioma
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {idioma.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      <main className="relative w-full max-w-[400px] sm:max-w-[420px]">
         <div
           className="rounded-3xl border border-border/60 bg-card/90 backdrop-blur-xl
             px-7 py-10 sm:px-9 sm:py-11 animate-fade-in
@@ -139,6 +171,11 @@ export default function Login() {
           {t("loginPrivacidade")}
         </p>
       </main>
+
+      <footer className="absolute bottom-6 left-0 right-0 hidden sm:flex items-center justify-center gap-2 text-xs text-muted-foreground/60">
+        <Logo className="w-4 h-4 opacity-60" />
+        <span>Minha Rotina · {new Date().getFullYear()}</span>
+      </footer>
     </div>
   );
 }
