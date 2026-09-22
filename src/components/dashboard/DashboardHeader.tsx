@@ -60,7 +60,7 @@ export function DashboardHeader() {
             <br className="sm:hidden" />
             <Link 
               to="/account" 
-              className="gradient-text hover:opacity-90 transition-opacity inline-block mt-1 sm:mt-0 sm:ml-1"
+              className="text-foreground hover:opacity-70 transition-opacity inline-block mt-1 sm:mt-0 sm:ml-1"
             >
               {user?.name || t("user")}
             </Link>
