@@ -7,7 +7,11 @@ import { LocaleProvider } from "@/contexts/LocaleContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SplashScreen } from "@/components/SplashScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import Index from "./pages/Index";
+import { AppShell } from "@/components/AppShell";
+import Hoje from "./pages/Hoje";
+import Progresso from "./pages/Progresso";
+import Financas from "./pages/Financas";
+import Notas from "./pages/Notas";
 import Login from "./pages/Login";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
@@ -23,9 +27,24 @@ function Conteudo() {
       <SplashScreen pronto={!loading} />
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-        <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
         <Route path="/install" element={<Install />} />
+
+        {/* As abas dividem o mesmo cabeçalho e a mesma navegação: trocar de
+            aba troca só o miolo, como em um aplicativo. */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <AppShell />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/" element={<Hoje />} />
+          <Route path="/progresso" element={<Progresso />} />
+          <Route path="/financas" element={<Financas />} />
+          <Route path="/notas" element={<Notas />} />
+        </Route>
+
+        <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
