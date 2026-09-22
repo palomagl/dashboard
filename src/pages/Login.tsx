@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Logo } from "@/components/Logo";
+import { chaveDoErro } from "@/lib/authErrors";
 
 /** A marca do Google, como as diretrizes do botão de login pedem. */
 function GoogleG() {
@@ -30,10 +31,14 @@ function GoogleG() {
 
 export default function Login() {
   const { t, locale, setLocale } = useLocale();
-  const { user, loading: carregandoSessao, loginWithGoogle } = useAuth();
+  const { user, loading: carregandoSessao, loginWithGoogle, erroAuth, limparErro } = useAuth();
   const [entrando, setEntrando] = useState(false);
-  const [erro, setErro] = useState("");
+  const [erroLocal, setErroLocal] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  // Duas origens, uma mensagem: o erro pode nascer aqui (o clique falhou) ou
+  // no contexto (o retorno do Google falhou, ou o perfil não pôde ser criado).
+  const codigoDoErro = erroLocal ?? erroAuth;
 
   useEffect(() => {
     let salvo: string | null = null;
@@ -53,32 +58,15 @@ export default function Login() {
   }, [user, carregandoSessao, navigate]);
 
   const entrar = async () => {
-    setErro("");
+    setErroLocal(null);
+    limparErro();
     setEntrando(true);
     try {
       await loginWithGoogle();
-      // No caminho do popup, o redirecionamento acontece no efeito acima.
-      // No caminho do redirect, a página já saiu daqui.
+      // A página sai daqui rumo ao Google. Se voltar, é porque falhou.
     } catch (e) {
-      const codigo = (e as { code?: string }).code;
-      const cancelou =
-        codigo === "auth/popup-closed-by-user" || codigo === "auth/cancelled-popup-request";
-
-      // "Tente de novo" é um conselho inútil quando tentar de novo nunca vai
-      // funcionar. Os erros de configuração ganham nome, para não custarem
-      // uma investigação inteira da próxima vez.
-      const porCodigo: Record<string, string> = {
-        "auth/unauthorized-domain": t("loginErroDominio"),
-        "auth/operation-not-allowed": t("loginErroProvedor"),
-        "auth/network-request-failed": t("loginErroRede"),
-      };
-
-      setErro(
-        cancelou
-          ? t("loginGoogleCancelado")
-          : porCodigo[codigo ?? ""] ?? t("loginGoogleError")
-      );
-      if (!cancelou) console.error("Falha no login com Google:", e);
+      console.error("Falha no login com Google:", e);
+      setErroLocal((e as { code?: string }).code ?? "desconhecido");
       setEntrando(false);
     }
   };
@@ -146,14 +134,14 @@ export default function Login() {
             </p>
           </div>
 
-          {erro && (
+          {codigoDoErro && (
             <div
               role="alert"
-              className="mt-7 flex items-center gap-2.5 rounded-xl border border-destructive/20
-                bg-destructive/10 px-4 py-3 text-sm text-destructive animate-fade-in"
+              className="mt-7 flex items-start gap-2.5 rounded-xl border border-destructive/20
+                bg-destructive/10 px-4 py-3 text-sm leading-relaxed text-destructive animate-fade-in"
             >
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
-              {erro}
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
+              <span>{t(chaveDoErro(codigoDoErro))}</span>
             </div>
           )}
 
