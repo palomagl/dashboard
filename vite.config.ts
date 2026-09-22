@@ -12,6 +12,12 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    headers: {
+      // O login do Google abre um popup, e o Firebase precisa enxergar quando
+      // ele fecha. Sem esta política o navegador corta o vínculo entre a página
+      // e o popup: a pessoa escolhe a conta e o app nunca fica sabendo.
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    },
   },
   plugins: [
     react(),

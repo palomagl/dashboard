@@ -103,7 +103,7 @@ export default function Login() {
         <div className="relative z-10 flex flex-col justify-center px-16 xl:px-24 py-16 w-full">
           <div className="flex items-center gap-3 mb-8 animate-fade-in">
             <Logo className="w-11 h-11" />
-            <span className="text-2xl font-bold gradient-text">Minha Rotina</span>
+            <span className="text-2xl font-bold text-foreground">Minha Rotina</span>
           </div>
 
           <h2 className="text-4xl xl:text-5xl font-bold tracking-tight text-foreground mb-4 leading-[1.1] animate-fade-in [animation-delay:80ms] [animation-fill-mode:backwards]">
@@ -196,7 +196,7 @@ export default function Login() {
           {/* Marca compacta - só no celular */}
           <div className="flex lg:hidden items-center justify-center gap-2.5 mb-8 animate-fade-in">
             <Logo className="w-8 h-8" />
-            <span className="text-xl font-bold gradient-text">Minha Rotina</span>
+            <span className="text-xl font-bold text-foreground">Minha Rotina</span>
           </div>
 
           <div className="glass-card glass-card-hover rounded-2xl p-8 sm:p-10 space-y-8 animate-fade-in border-border/50 shadow-2xl shadow-black/20">

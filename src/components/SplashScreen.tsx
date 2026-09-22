@@ -44,7 +44,7 @@ export function SplashScreen({ pronto }: { pronto: boolean }) {
     >
       <Logo className="w-20 h-20 animate-fade-in motion-reduce:animate-none" />
       <p
-        className="mt-5 text-sm font-medium tracking-[0.2em] uppercase text-muted-foreground
+        className="mt-5 text-sm font-semibold tracking-[0.2em] uppercase text-foreground/80
           animate-fade-in motion-reduce:animate-none [animation-delay:150ms] [animation-fill-mode:backwards]"
       >
         Minha Rotina
