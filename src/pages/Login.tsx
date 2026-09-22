@@ -87,8 +87,8 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Painel esquerdo - marca */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,hsl(var(--primary)/0.18),transparent)]" />
+      <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden bg-gradient-to-br from-background via-background to-widget-habits/5">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,hsl(var(--widget-habits)/0.16),transparent)]" />
         <div
           className="absolute inset-0 opacity-[0.07]"
           style={{
@@ -97,7 +97,7 @@ export default function Login() {
             backgroundSize: "40px 40px",
           }}
         />
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full bg-primary/10 blur-3xl animate-float" />
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full bg-widget-habits/10 blur-3xl animate-float" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-widget-goals/10 blur-3xl animate-float-slow" />
 
         <div className="relative z-10 flex flex-col justify-center px-16 xl:px-24 py-16 w-full">
@@ -191,7 +191,7 @@ export default function Login() {
 
       {/* Lado direito - entrar */}
       <div className="w-full lg:w-1/2 xl:w-[45%] flex items-center justify-center p-6 sm:p-8 lg:p-12 relative overflow-hidden lg:overflow-visible">
-        <div className="absolute inset-0 lg:hidden bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,hsl(var(--primary)/0.12),transparent)]" />
+        <div className="absolute inset-0 lg:hidden bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,hsl(var(--widget-habits)/0.12),transparent)]" />
         <div className="w-full max-w-md relative">
           {/* Marca compacta - só no celular */}
           <div className="flex lg:hidden items-center justify-center gap-2.5 mb-8 animate-fade-in">
@@ -201,9 +201,6 @@ export default function Login() {
 
           <div className="glass-card glass-card-hover rounded-2xl p-8 sm:p-10 space-y-8 animate-fade-in border-border/50 shadow-2xl shadow-black/20">
             <div className="text-center lg:text-left space-y-2">
-              <div className="flex lg:hidden justify-center mb-2">
-                <Logo className="w-14 h-14" />
-              </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{t("loginTitle")}</h1>
               <p className="text-muted-foreground text-sm">{t("loginSubtitle")}</p>
             </div>

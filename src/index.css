@@ -47,6 +47,9 @@
 
     /* Custom tokens */
     --gradient-primary: linear-gradient(135deg, hsl(173 80% 40%), hsl(190 80% 50%));
+    /* Gradiente usado só em texto. Separado do --gradient-primary para dar
+       para mudar a cor dos títulos sem mexer nos brilhos dos widgets. */
+    --gradient-heading: linear-gradient(135deg, hsl(262 83% 58%), hsl(38 92% 50%));
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 20% 98%));
     --shadow-card: 0 4px 24px -4px hsl(220 20% 10% / 0.08);
     --shadow-hover: 0 8px 32px -4px hsl(220 20% 10% / 0.12);
@@ -100,6 +103,7 @@
 
     /* Custom tokens dark */
     --gradient-primary: linear-gradient(135deg, hsl(173 80% 50%), hsl(190 80% 60%));
+    --gradient-heading: linear-gradient(135deg, hsl(262 83% 70%), hsl(38 92% 60%));
     --gradient-card: linear-gradient(145deg, hsl(222 47% 12%), hsl(222 47% 10%));
     --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.4);
     --shadow-hover: 0 8px 32px -4px hsl(0 0% 0% / 0.5);
@@ -133,7 +137,7 @@
   }
 
   .gradient-text {
-    background: var(--gradient-primary);
+    background: var(--gradient-heading);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
