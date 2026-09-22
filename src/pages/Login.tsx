@@ -3,15 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Logo } from "@/components/Logo";
-import {
-  CheckSquare,
-  Target,
-  Wallet,
-  Timer,
-  CheckCircle2,
-  Flame,
-  Play,
-} from "lucide-react";
 
 /** A marca do Google, como as diretrizes do botão de login pedem. */
 function GoogleG() {
@@ -77,174 +68,77 @@ export default function Login() {
     }
   };
 
-  const features = [
-    { icon: CheckSquare, label: t("loginFeatureTasks"), color: "text-widget-tasks", bg: "bg-widget-tasks/10 border-widget-tasks/20" },
-    { icon: Timer, label: t("loginFeaturePomodoro"), color: "text-widget-focus", bg: "bg-widget-focus/10 border-widget-focus/20" },
-    { icon: Target, label: t("loginFeatureGoals"), color: "text-widget-goals", bg: "bg-widget-goals/10 border-widget-goals/20" },
-    { icon: Wallet, label: t("loginFeatureFinance"), color: "text-widget-finance", bg: "bg-widget-finance/10 border-widget-finance/20" },
-  ];
-
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Painel esquerdo - marca */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden bg-gradient-to-br from-background via-background to-widget-habits/5">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,hsl(var(--widget-habits)/0.16),transparent)]" />
+    <div
+      className="relative min-h-screen bg-background grid place-items-center px-5
+        pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+    >
+      {/* Um brilho só, bem discreto, para a tela não ser uma chapa lisa. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
-          className="absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage:
-              "linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
+          className="absolute left-1/2 top-0 h-[60vh] w-[130vw] -translate-x-1/2 -translate-y-1/3
+            rounded-full bg-widget-habits/[0.08] blur-[110px]"
         />
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full bg-widget-habits/10 blur-3xl animate-float" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-widget-goals/10 blur-3xl animate-float-slow" />
-
-        <div className="relative z-10 flex flex-col justify-center px-16 xl:px-24 py-16 w-full">
-          <div className="flex items-center gap-3 mb-8 animate-fade-in">
-            <Logo className="w-11 h-11" />
-            <span className="text-2xl font-bold text-foreground">Minha Rotina</span>
-          </div>
-
-          <h2 className="text-4xl xl:text-5xl font-bold tracking-tight text-foreground mb-4 leading-[1.1] animate-fade-in [animation-delay:80ms] [animation-fill-mode:backwards]">
-            Organize seu dia.
-            <br />
-            <span className="gradient-text">Cuide do que importa.</span>
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-md mb-10 animate-fade-in [animation-delay:150ms] [animation-fill-mode:backwards]">
-            Tarefas, hábitos, metas e finanças em um só lugar. Acesse seu dashboard e comece agora.
-          </p>
-
-          <div className="space-y-3 max-w-sm mb-12">
-            {features.map(({ icon: Icon, label, color, bg }, i) => (
-              <div
-                key={label}
-                style={{ animationDelay: `${220 + i * 90}ms` }}
-                className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${bg} backdrop-blur-sm transition-all duration-300 hover:translate-x-1 hover:shadow-md animate-fade-in [animation-fill-mode:backwards]`}
-              >
-                <Icon className={`w-4 h-4 shrink-0 ${color}`} />
-                <span className="text-sm font-medium text-foreground">{label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 mb-5 animate-fade-in [animation-delay:460ms] [animation-fill-mode:backwards]">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-widget-focus bg-widget-focus/10 border border-widget-focus/20 rounded-full px-3 py-1.5">
-              <Flame className="w-3.5 h-3.5" />
-              12 dias de sequência
-            </span>
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 border border-primary/20 rounded-full px-3 py-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              4/6 tarefas hoje
-            </span>
-          </div>
-
-          {/* Prévia do produto */}
-          <div className="glass-card rounded-2xl p-5 max-w-sm shadow-xl shadow-black/10 border-border/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 animate-fade-in [animation-delay:540ms] [animation-fill-mode:backwards]">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                <Timer className="w-3.5 h-3.5 text-widget-focus" />
-                Pomodoro
-              </span>
-              <span className="text-xs text-muted-foreground font-medium">3 sessões hoje</span>
-            </div>
-
-            <div className="flex items-center gap-5">
-              <div className="relative w-20 h-20 shrink-0">
-                <svg className="w-20 h-20 -rotate-90" viewBox="0 0 120 120">
-                  <circle cx="60" cy="60" r="54" fill="none" stroke="hsl(var(--secondary))" strokeWidth="10" />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="54"
-                    fill="none"
-                    stroke="hsl(var(--widget-focus))"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    strokeDasharray={2 * Math.PI * 54}
-                    strokeDashoffset={2 * Math.PI * 54 * 0.35}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-sm font-bold tabular-nums text-foreground">16:12</span>
-                </div>
-              </div>
-              <div className="flex-1 space-y-2">
-                <p className="text-sm font-medium text-foreground">Sessão de foco</p>
-                <p className="text-xs text-muted-foreground">Estudar para a prova de sexta</p>
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-widget-focus bg-widget-focus/10 border border-widget-focus/20 rounded-lg px-3 py-1.5 w-fit">
-                  <Play className="w-3 h-3" />
-                  Em andamento
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-border/50 flex items-center gap-2">
-              <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-primary via-widget-focus to-widget-habits w-2/3" />
-              </div>
-              <span className="text-xs font-medium text-muted-foreground">67%</span>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Lado direito - entrar */}
-      <div className="w-full lg:w-1/2 xl:w-[45%] flex items-center justify-center p-6 sm:p-8 lg:p-12 relative overflow-hidden lg:overflow-visible">
-        <div className="absolute inset-0 lg:hidden bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,hsl(var(--widget-habits)/0.12),transparent)]" />
-        <div className="w-full max-w-md relative">
-          {/* Marca compacta - só no celular */}
-          <div className="flex lg:hidden items-center justify-center gap-2.5 mb-8 animate-fade-in">
-            <Logo className="w-8 h-8" />
-            <span className="text-xl font-bold text-foreground">Minha Rotina</span>
+      <main className="relative w-full max-w-[400px]">
+        <div
+          className="rounded-3xl border border-border/60 bg-card/90 backdrop-blur-xl
+            px-7 py-10 sm:px-9 sm:py-11 animate-fade-in
+            shadow-[0_24px_70px_-20px_rgb(0_0_0/0.22)] dark:shadow-[0_24px_70px_-20px_rgb(0_0_0/0.65)]"
+        >
+          <div className="flex flex-col items-center text-center">
+            <Logo className="w-16 h-16" />
+
+            <h1 className="mt-6 text-[1.75rem] font-extrabold tracking-tight text-foreground">
+              Minha Rotina
+            </h1>
+
+            <p className="mt-2.5 text-[0.9375rem] leading-relaxed text-muted-foreground">
+              {t("loginSubtitle")}
+            </p>
           </div>
 
-          <div className="glass-card glass-card-hover rounded-2xl p-8 sm:p-10 space-y-8 animate-fade-in border-border/50 shadow-2xl shadow-black/20">
-            <div className="text-center lg:text-left space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{t("loginTitle")}</h1>
-              <p className="text-muted-foreground text-sm">{t("loginSubtitle")}</p>
-            </div>
-
-            {erro && (
-              <div
-                role="alert"
-                className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2 animate-fade-in"
-              >
-                <span className="shrink-0 w-2 h-2 rounded-full bg-destructive" />
-                {erro}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={entrar}
-              disabled={entrando}
-              className="w-full h-12 rounded-xl font-medium bg-white text-[#1f1f1f] border border-black/10
-                flex items-center justify-center gap-3 shadow-lg shadow-black/10
-                transition-all hover:shadow-xl hover:bg-white/95 active:scale-[0.98]
-                disabled:opacity-70 disabled:cursor-not-allowed disabled:active:scale-100"
+          {erro && (
+            <div
+              role="alert"
+              className="mt-7 flex items-center gap-2.5 rounded-xl border border-destructive/20
+                bg-destructive/10 px-4 py-3 text-sm text-destructive animate-fade-in"
             >
-              {entrando ? (
-                <>
-                  <span className="w-5 h-5 border-2 border-[#1f1f1f]/25 border-t-[#1f1f1f] rounded-full animate-spin" />
-                  {t("loginGoogleLoading")}
-                </>
-              ) : (
-                <>
-                  <GoogleG />
-                  {t("loginGoogle")}
-                </>
-              )}
-            </button>
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
+              {erro}
+            </div>
+          )}
 
-            <p className="text-center text-xs text-muted-foreground">{t("loginPrivacidade")}</p>
-          </div>
-
-          <p className="text-center text-xs text-muted-foreground/70 mt-6">
-            Ao entrar, você concorda com o uso do app para organizar sua rotina.
-          </p>
+          <button
+            type="button"
+            onClick={entrar}
+            disabled={entrando}
+            className="mt-8 flex h-[3.25rem] w-full items-center justify-center gap-3
+              rounded-2xl border border-black/[0.08] bg-white font-semibold text-[#1f1f1f]
+              shadow-sm transition-all
+              hover:shadow-md hover:-translate-y-px
+              active:translate-y-0 active:scale-[0.99]
+              disabled:pointer-events-none disabled:opacity-60"
+          >
+            {entrando ? (
+              <>
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#1f1f1f]/20 border-t-[#1f1f1f]" />
+                {t("loginGoogleLoading")}
+              </>
+            ) : (
+              <>
+                <GoogleG />
+                {t("loginGoogle")}
+              </>
+            )}
+          </button>
         </div>
-      </div>
+
+        <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground/70">
+          {t("loginPrivacidade")}
+        </p>
+      </main>
     </div>
   );
 }
