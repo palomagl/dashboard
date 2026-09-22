@@ -60,6 +60,12 @@ export default defineConfig(({ mode }) => ({
         // o Safari, antes do app existir. Guardá-las no cache do service worker
         // só engordaria o primeiro carregamento sem serventia nenhuma.
         globIgnores: ["**/splash/**"],
+        // O service worker assume que toda navegação é uma rota do app e
+        // devolve o index.html do cache. Só que /__/auth/ não é rota nossa:
+        // é o handler do Google, servido por um proxy no vercel.json. Sem esta
+        // exceção, o login por redirect volta do Google e cai no nosso 404 —
+        // e redirect é justamente o caminho do app na tela inicial do iPhone.
+        navigateFallbackDenylist: [/^\/__\/auth\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
