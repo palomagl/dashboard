@@ -23,6 +23,7 @@ import {
   updateDoc,
   addDoc,
   increment,
+  onSnapshot,
   Timestamp,
   type DocumentData,
   type QueryDocumentSnapshot,
@@ -113,6 +114,60 @@ export const userApi = {
     const atual = await getDoc(doc(db, "users", uid()));
     const d = atual.data() ?? {};
     return { id: uid(), name: d.name, email: d.email, photoURL: d.photoURL ?? null };
+  },
+};
+
+// ==============================================
+// TELEGRAM
+// ==============================================
+// O vínculo em si — telegramChats/{chatId} e a escrita de verdade em
+// users/{uid}.telegram — é feito só pelo servidor, com o Admin SDK. O
+// cliente nunca grava isso direto: só lê ao vivo, pra tela, e chama as
+// rotas que pedem ou desfazem o vínculo.
+
+export interface TelegramStatus {
+  chatId: string;
+  vinculadoEm: Date;
+}
+
+export interface CodigoVinculo {
+  /** Ex.: "K7M2P9XQ". Mandar como "/start K7M2P9XQ" pro bot. */
+  codigo: string;
+  /** ISO 8601. */
+  expiraEm: string;
+}
+
+async function cabecalhoAutorizacao(): Promise<HeadersInit> {
+  const usuario = auth.currentUser;
+  if (!usuario) throw new Error("Não autenticado");
+  const token = await usuario.getIdToken();
+  return { Authorization: `Bearer ${token}` };
+}
+
+export const telegramApi = {
+  /** Observa users/{uid}.telegram ao vivo. Chama `cb(null)` quando não há vínculo. */
+  observar(cb: (status: TelegramStatus | null) => void): () => void {
+    return onSnapshot(doc(db, "users", uid()), (snap) => {
+      const dado = snap.data()?.telegram as { chatId: string; vinculadoEm: Timestamp } | undefined;
+      cb(dado ? { chatId: dado.chatId, vinculadoEm: dado.vinculadoEm.toDate() } : null);
+    });
+  },
+
+  async gerarCodigo(): Promise<CodigoVinculo> {
+    const res = await fetch("/api/telegram/vinculo", {
+      method: "POST",
+      headers: await cabecalhoAutorizacao(),
+    });
+    if (!res.ok) throw new Error("Não foi possível gerar o código. Tente de novo.");
+    return res.json();
+  },
+
+  async desvincular(): Promise<void> {
+    const res = await fetch("/api/telegram/vinculo", {
+      method: "DELETE",
+      headers: await cabecalhoAutorizacao(),
+    });
+    if (!res.ok) throw new Error("Não foi possível desvincular. Tente de novo.");
   },
 };
 

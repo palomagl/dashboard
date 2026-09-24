@@ -1,10 +1,18 @@
-import { describe, it, expect } from "vitest";
-import { lerComando, responder, MENSAGENS, type TelegramUpdate } from "./bot";
+import { describe, it, expect, vi } from "vitest";
+import { lerComando, responder, MENSAGENS, type TelegramUpdate, type Io } from "./bot";
 
 function privado(text?: string): TelegramUpdate {
   return {
     update_id: 1,
     message: { message_id: 10, chat: { id: 42, type: "private" }, ...(text !== undefined && { text }) },
+  };
+}
+
+/** io de teste: nunca deveria ser chamada nos casos que não envolvem vínculo. */
+function ioFalso(): Io {
+  return {
+    vincular: vi.fn(async () => "nunca deveria chamar vincular aqui"),
+    desvincular: vi.fn(async () => "nunca deveria chamar desvincular aqui"),
   };
 }
 
@@ -31,41 +39,63 @@ describe("lerComando", () => {
 });
 
 describe("responder", () => {
-  it("/start dá as boas-vindas", () => {
-    expect(responder(privado("/start"))).toEqual({ chatId: 42, texto: MENSAGENS.boasVindas });
+  it("/start sem código dá as boas-vindas, sem chamar o io", async () => {
+    const io = ioFalso();
+    await expect(responder(privado("/start"), io)).resolves.toEqual({ chatId: 42, texto: MENSAGENS.boasVindas });
+    expect(io.vincular).not.toHaveBeenCalled();
   });
 
-  it("/start com código (link de vínculo) também dá as boas-vindas por enquanto", () => {
-    expect(responder(privado("/start CODIGO123"))?.texto).toBe(MENSAGENS.boasVindas);
+  it("/start com código chama io.vincular e devolve o texto dele", async () => {
+    const io = ioFalso();
+    io.vincular = vi.fn(async () => "vinculado!");
+    const resposta = await responder(privado("/start CODIGO123"), io);
+    expect(io.vincular).toHaveBeenCalledWith(42, "CODIGO123");
+    expect(resposta).toEqual({ chatId: 42, texto: "vinculado!" });
   });
 
-  it("/ajuda e /help mostram a ajuda", () => {
-    expect(responder(privado("/ajuda"))?.texto).toBe(MENSAGENS.ajuda);
-    expect(responder(privado("/help"))?.texto).toBe(MENSAGENS.ajuda);
-    expect(responder(privado("/ajuda@MinhaRotinaBot"))?.texto).toBe(MENSAGENS.ajuda);
+  it("/ajuda e /help mostram a ajuda", async () => {
+    const io = ioFalso();
+    expect((await responder(privado("/ajuda"), io))?.texto).toBe(MENSAGENS.ajuda);
+    expect((await responder(privado("/help"), io))?.texto).toBe(MENSAGENS.ajuda);
+    expect((await responder(privado("/ajuda@MinhaRotinaBot"), io))?.texto).toBe(MENSAGENS.ajuda);
   });
 
-  it("comando que não existe avisa e aponta para a ajuda", () => {
-    expect(responder(privado("/gasto 10 pão"))?.texto).toBe(MENSAGENS.comandoDesconhecido);
+  it("/desvincular chama io.desvincular e devolve o texto dele", async () => {
+    const io = ioFalso();
+    io.desvincular = vi.fn(async () => "desvinculado!");
+    const resposta = await responder(privado("/desvincular"), io);
+    expect(io.desvincular).toHaveBeenCalledWith(42);
+    expect(resposta).toEqual({ chatId: 42, texto: "desvinculado!" });
   });
 
-  it("texto comum avisa que o registro ainda não existe", () => {
-    expect(responder(privado("gastei 25,90 mercado"))?.texto).toBe(MENSAGENS.textoAindaNao);
+  it("comando que não existe avisa e aponta para a ajuda", async () => {
+    const io = ioFalso();
+    expect((await responder(privado("/gasto 10 pão"), io))?.texto).toBe(MENSAGENS.comandoDesconhecido);
   });
 
-  it("mensagem sem texto (áudio, foto) avisa que só entende texto", () => {
-    expect(responder(privado(undefined))?.texto).toBe(MENSAGENS.soTexto);
+  it("texto comum avisa que o registro ainda não existe", async () => {
+    const io = ioFalso();
+    expect((await responder(privado("gastei 25,90 mercado"), io))?.texto).toBe(MENSAGENS.textoAindaNao);
   });
 
-  it("fica quieto em grupo", () => {
+  it("mensagem sem texto (áudio, foto) avisa que só entende texto", async () => {
+    const io = ioFalso();
+    expect((await responder(privado(undefined), io))?.texto).toBe(MENSAGENS.soTexto);
+  });
+
+  it("fica quieto em grupo, sem chamar o io", async () => {
+    const io = ioFalso();
     const grupo: TelegramUpdate = {
       update_id: 2,
       message: { message_id: 11, chat: { id: -100, type: "group" }, text: "/ajuda" },
     };
-    expect(responder(grupo)).toBeNull();
+    await expect(responder(grupo, io)).resolves.toBeNull();
+    expect(io.vincular).not.toHaveBeenCalled();
+    expect(io.desvincular).not.toHaveBeenCalled();
   });
 
-  it("ignora updates sem mensagem", () => {
-    expect(responder({ update_id: 3 })).toBeNull();
+  it("ignora updates sem mensagem", async () => {
+    const io = ioFalso();
+    await expect(responder({ update_id: 3 }, io)).resolves.toBeNull();
   });
 });
