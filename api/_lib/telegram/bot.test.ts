@@ -81,7 +81,7 @@ describe("responder — texto livre vira lançamento (Fase 3)", () => {
     expect(io.registrar).toHaveBeenCalledWith(42, update.update_id, {
       type: "expense",
       amount: 25.9,
-      description: "mercado",
+      description: "Mercado",
     });
     expect(resposta).toEqual({ chatId: 42, texto: "✅ registrado" });
   });
@@ -93,7 +93,7 @@ describe("responder — texto livre vira lançamento (Fase 3)", () => {
     expect(io.registrar).toHaveBeenCalledWith(
       42,
       1,
-      expect.objectContaining({ type: "expense", amount: 18, description: "uber" })
+      expect.objectContaining({ type: "expense", amount: 18, description: "Uber" })
     );
   });
 
@@ -104,7 +104,7 @@ describe("responder — texto livre vira lançamento (Fase 3)", () => {
     expect(io.registrar).toHaveBeenCalledWith(
       42,
       1,
-      expect.objectContaining({ type: "income", amount: 2500, description: "salário" })
+      expect.objectContaining({ type: "income", amount: 2500, description: "Salário" })
     );
   });
 
@@ -128,7 +128,7 @@ describe("responder — comandos /gasto, /entrada, /ultimas, /desfazer (Fase 3)"
     const io = ioFalso();
     io.registrar = vi.fn(async () => "✅ gasto ok");
     const resposta = await responder(privado("/gasto 30 mercado"), io);
-    expect(io.registrar).toHaveBeenCalledWith(42, 1, { type: "expense", amount: 30, description: "mercado" });
+    expect(io.registrar).toHaveBeenCalledWith(42, 1, { type: "expense", amount: 30, description: "Mercado" });
     expect(resposta).toEqual({ chatId: 42, texto: "✅ gasto ok" });
   });
 
@@ -136,7 +136,7 @@ describe("responder — comandos /gasto, /entrada, /ultimas, /desfazer (Fase 3)"
     const io = ioFalso();
     io.registrar = vi.fn(async () => "✅ entrada ok");
     await responder(privado("/entrada 2500 salário"), io);
-    expect(io.registrar).toHaveBeenCalledWith(42, 1, { type: "income", amount: 2500, description: "salário" });
+    expect(io.registrar).toHaveBeenCalledWith(42, 1, { type: "income", amount: 2500, description: "Salário" });
   });
 
   it("/gasto sem valor reconhecível não chama o io", async () => {

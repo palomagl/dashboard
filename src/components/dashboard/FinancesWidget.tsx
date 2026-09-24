@@ -3,7 +3,7 @@ import { Plus, Wallet, TrendingUp, TrendingDown, CreditCard, Receipt, Trash2, Pe
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { billsApi, transactionsApi, Bill, Transaction } from "@/lib/db";
+import { billsApi, transactionsApi, Bill, Transaction, CATEGORIAS_TRANSACAO, CategoriaTransacao } from "@/lib/db";
 import { dayKey } from "@/lib/dates";
 import { executar, carregar } from "@/lib/acoes";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -29,11 +29,11 @@ export function FinancesWidget() {
   const [showAddBill, setShowAddBill] = useState(false);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [newBill, setNewBill] = useState({ name: "", amount: "", dueDate: "", category: "Serviços" });
-  const [newTransaction, setNewTransaction] = useState({ description: "", amount: "", type: "expense" as "income" | "expense" });
+  const [newTransaction, setNewTransaction] = useState({ description: "", amount: "", type: "expense" as "income" | "expense", category: "Outros" as CategoriaTransacao });
   const [editingBillId, setEditingBillId] = useState<string | null>(null);
   const [editingBill, setEditingBill] = useState({ name: "", amount: "", dueDate: "", category: "" });
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
-  const [editingTransaction, setEditingTransaction] = useState({ description: "", amount: "", type: "expense" as "income" | "expense" });
+  const [editingTransaction, setEditingTransaction] = useState({ description: "", amount: "", type: "expense" as "income" | "expense", category: "Outros" as CategoriaTransacao });
 
   useEffect(() => {
     carregar(() => billsApi.list(), "contas").then((lista) => lista && setBills(lista));
@@ -80,12 +80,12 @@ export function FinancesWidget() {
     const valor = parseFloat(newTransaction.amount);
     if (!newTransaction.description.trim() || !Number.isFinite(valor)) return;
     const criada = await executar(
-      () => transactionsApi.create({ description: newTransaction.description.trim(), amount: valor, type: newTransaction.type, date: dayKey() }),
+      () => transactionsApi.create({ description: newTransaction.description.trim(), amount: valor, type: newTransaction.type, date: dayKey(), category: newTransaction.category }),
       { erro: t("erroAoAdicionar") }
     );
     if (!criada) return;
     setTransactions([criada, ...transactions]);
-    setNewTransaction({ description: "", amount: "", type: "expense" });
+    setNewTransaction({ description: "", amount: "", type: "expense", category: "Outros" });
     setShowAddTransaction(false);
   };
 
@@ -116,7 +116,7 @@ export function FinancesWidget() {
 
   const startEditingTransaction = (t: Transaction) => {
     setEditingTransactionId(t.id);
-    setEditingTransaction({ description: t.description, amount: t.amount.toString(), type: t.type });
+    setEditingTransaction({ description: t.description, amount: t.amount.toString(), type: t.type, category: t.category ?? "Outros" });
   };
 
   const saveEditTransaction = async () => {
@@ -124,6 +124,7 @@ export function FinancesWidget() {
     if (!editingTransaction.description.trim() || !Number.isFinite(valor) || !editingTransactionId) return;
     const dados = {
       description: editingTransaction.description.trim(),
+      category: editingTransaction.category,
       amount: valor,
       type: editingTransaction.type,
     };
@@ -285,6 +286,14 @@ export function FinancesWidget() {
                   </SelectContent>
                 </Select>
               </div>
+              <Select value={newTransaction.category} onValueChange={(v: CategoriaTransacao) => setNewTransaction({ ...newTransaction, category: v })}>
+                <SelectTrigger className="bg-background/50 border-border/50 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIAS_TRANSACAO.map((categoria) => (
+                    <SelectItem key={categoria} value={categoria}>{categoria}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="flex gap-2">
                 <Button onClick={() => setShowAddTransaction(false)} variant="ghost" size="sm" className="flex-1">{t("cancel")}</Button>
                 <Button onClick={addTransaction} size="sm" className="flex-1 bg-widget-finance hover:bg-widget-finance/90">{t("add")}</Button>
@@ -310,6 +319,14 @@ export function FinancesWidget() {
                         <SelectItem value="expense">{t("financesExpenseType")}</SelectItem>
                       </SelectContent>
                     </Select>
+                    <Select value={editingTransaction.category} onValueChange={(v: CategoriaTransacao) => setEditingTransaction({ ...editingTransaction, category: v })}>
+                      <SelectTrigger className="bg-background/50 border-border/50 h-8 w-32"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {CATEGORIAS_TRANSACAO.map((categoria) => (
+                          <SelectItem key={categoria} value={categoria}>{categoria}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <button type="button" onClick={saveEditTransaction} className="p-1" aria-label={t("save")}><Check className="w-4 h-4 text-emerald-500" /></button>
                     <button type="button" onClick={cancelEditTransaction} className="p-1" aria-label={t("cancel")}><X className="w-4 h-4 text-muted-foreground" /></button>
                   </div>
@@ -320,7 +337,7 @@ export function FinancesWidget() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{transaction.description}</p>
-                      <p className="text-xs text-muted-foreground">{dataCurta(transaction.date, locale)}</p>
+                      <p className="text-xs text-muted-foreground">{dataCurta(transaction.date, locale)} • {transaction.category ?? "Outros"}</p>
                     </div>
                     <span className={`text-sm font-semibold ${transaction.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
                       {transaction.type === 'income' ? '+' : '-'} R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

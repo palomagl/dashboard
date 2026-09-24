@@ -52,7 +52,7 @@ describe("chat não vinculado", () => {
     const resposta = await registrarTransacao(999, 1, {
       type: "expense",
       amount: 30,
-      description: "mercado",
+      description: "Mercado",
     });
     expect(resposta).toMatch(/não está vinculada/i);
     expect(obterUidPorChat).toHaveBeenCalledWith(999);

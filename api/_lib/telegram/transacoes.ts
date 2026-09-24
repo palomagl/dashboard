@@ -70,6 +70,9 @@ export async function registrarTransacao(
         amount: transacao.amount,
         type: transacao.type,
         date: dataHojeSaoPaulo(),
+        // O bot ainda não pergunta categoria — fica "Outros" até a pessoa
+        // reclassificar na tela de Finanças, se quiser.
+        category: "Outros",
         source: "telegram",
         telegramChatId: String(chatId),
         createdAt: Timestamp.now(),

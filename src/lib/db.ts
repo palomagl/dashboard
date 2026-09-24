@@ -355,6 +355,23 @@ export const billsApi = {
 // FINANÇAS - Transações
 // ==============================================
 
+/**
+ * Categorias das transações — mesma lista usada no seletor do formulário e no
+ * gráfico "despesas por categoria". Transações antigas ou criadas pelo
+ * Telegram (que ainda não pergunta categoria) usam "Outros" por padrão.
+ */
+export const CATEGORIAS_TRANSACAO = [
+  "Alimentação",
+  "Transporte",
+  "Moradia",
+  "Lazer",
+  "Saúde",
+  "Assinaturas",
+  "Outros",
+] as const;
+
+export type CategoriaTransacao = (typeof CATEGORIAS_TRANSACAO)[number];
+
 export interface Transaction {
   id: string;
   description: string;
@@ -362,6 +379,8 @@ export interface Transaction {
   type: "income" | "expense";
   /** "YYYY-MM-DD". Guardado assim para dar para somar por mês; a tela é quem formata. */
   date: string;
+  /** Ausente em transações antigas — quem lê trata como "Outros". */
+  category?: CategoriaTransacao;
 }
 
 export const transactionsApi = {

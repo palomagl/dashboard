@@ -36,7 +36,7 @@ describe("interpretarMensagem — casos normais", () => {
     expect(interpretarMensagem("gastei 30 reais no mercado")).toEqual({
       type: "expense",
       amount: 30,
-      description: "mercado",
+      description: "Mercado",
     });
   });
 
@@ -44,7 +44,7 @@ describe("interpretarMensagem — casos normais", () => {
     expect(interpretarMensagem("gastei 20 de gasolina")).toEqual({
       type: "expense",
       amount: 20,
-      description: "gasolina",
+      description: "Gasolina",
     });
   });
 
@@ -52,7 +52,7 @@ describe("interpretarMensagem — casos normais", () => {
     expect(interpretarMensagem("recebi 2500 de salário")).toEqual({
       type: "income",
       amount: 2500,
-      description: "salário",
+      description: "Salário",
     });
   });
 
@@ -60,7 +60,7 @@ describe("interpretarMensagem — casos normais", () => {
     expect(interpretarMensagem("uber 18")).toEqual({
       type: "expense",
       amount: 18,
-      description: "uber",
+      description: "Uber",
     });
   });
 });
@@ -72,6 +72,16 @@ describe("interpretarMensagem — valores brasileiros", () => {
 
   it("com milhar e centavos", () => {
     expect(interpretarMensagem("recebi 1.250,90 de freela")?.amount).toBe(1250.9);
+  });
+});
+
+describe("interpretarMensagem — número colado em palavra não é confundido com o valor", () => {
+  it("ignora o \"10\" de \"dia10\" e pega o valor de verdade", () => {
+    expect(interpretarMensagem("comprei um tenis no cartao pra pagar dia10, 100")).toEqual({
+      type: "expense",
+      amount: 100,
+      description: "Um tenis cartao pagar dia10,",
+    });
   });
 });
 
@@ -105,7 +115,7 @@ describe("interpretarComando", () => {
     expect(interpretarComando("expense", "30 mercado")).toEqual({
       type: "expense",
       amount: 30,
-      description: "mercado",
+      description: "Mercado",
     });
   });
 
@@ -113,7 +123,7 @@ describe("interpretarComando", () => {
     expect(interpretarComando("income", "2500 salário")).toEqual({
       type: "income",
       amount: 2500,
-      description: "salário",
+      description: "Salário",
     });
   });
 
@@ -121,7 +131,7 @@ describe("interpretarComando", () => {
     expect(interpretarComando("expense", "45,90 mercado do bairro")).toEqual({
       type: "expense",
       amount: 45.9,
-      description: "mercado bairro",
+      description: "Mercado bairro",
     });
   });
 

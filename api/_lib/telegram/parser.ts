@@ -55,7 +55,11 @@ export function interpretarValorBR(token: string): number | null {
 
 /** Acha o primeiro trecho que parece um valor em reais dentro de um texto qualquer. */
 function acharValor(texto: string): { valor: number; inicio: number; fim: number } | null {
-  const regex = /r\$\s*\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?/gi;
+  // (?<![\p{L}\d]) evita pegar números colados dentro de uma palavra, tipo o
+  // "10" de "dia10" — só considera número que começa isolado (início da
+  // frase, espaço ou pontuação antes dele).
+  const regex =
+    /(?<![\p{L}\d])(?:r\$\s*\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)/giu;
   const m = regex.exec(texto);
   if (!m) return null;
 
@@ -66,11 +70,18 @@ function acharValor(texto: string): { valor: number; inicio: number; fim: number
 }
 
 function limparDescricao(texto: string): string {
-  return texto
+  const limpa = texto
     .split(/\s+/)
     .filter((palavra) => palavra.length > 0 && !PALAVRAS_DESCARTAVEIS.has(palavra.toLowerCase()))
     .join(" ")
     .trim();
+  return capitalizarPrimeiraLetra(limpa);
+}
+
+/** "mercado bairro" -> "Mercado bairro" — padroniza como o resto do app mostra as descrições. */
+function capitalizarPrimeiraLetra(texto: string): string {
+  if (!texto) return texto;
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
 /**
