@@ -30,7 +30,7 @@ export function RecentTransactionsWidget() {
   const ultimas = transactions.slice(0, QUANTIDADE);
 
   return (
-    <div className="glass-card glass-card-hover rounded-xl p-5 animate-fade-in h-full">
+    <div className="glass-card glass-card-hover rounded-2xl p-6 animate-fade-in h-full">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-lg">{t("recentTransactionsTitle")}</h3>
         <Link to="/financas" className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">

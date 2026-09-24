@@ -103,7 +103,7 @@ export function FinanceOverviewWidget() {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
       {/* Resumo Financeiro — rosca de gastos x entradas */}
-      <div className="glass-card glass-card-hover rounded-xl p-5 animate-fade-in">
+      <div className="glass-card glass-card-hover rounded-2xl p-6 animate-fade-in">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="font-semibold text-lg">{t("financeOverviewTitle")}</h3>
@@ -147,20 +147,26 @@ export function FinanceOverviewWidget() {
               </div>
             </div>
 
-            <div className="flex-1 space-y-2 min-w-0">
+            <div className="flex-1 space-y-3 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2 text-sm text-muted-foreground truncate">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COR_GASTOS }} />
                   {t("financeOverviewExpenses")}
                 </span>
-                <span className="text-sm font-medium">{formatarReais(totalGastos)}</span>
+                <span className="text-sm font-semibold">{formatarReais(totalGastos)}</span>
+                <span className="text-xs text-muted-foreground w-9 text-right shrink-0">
+                  {totalMovimentado > 0 ? Math.round((totalGastos / totalMovimentado) * 100) : 0}%
+                </span>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2 text-sm text-muted-foreground truncate">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COR_ENTRADAS }} />
                   {t("financeOverviewIncome")}
                 </span>
-                <span className="text-sm font-medium">{formatarReais(totalEntradas)}</span>
+                <span className="text-sm font-semibold">{formatarReais(totalEntradas)}</span>
+                <span className="text-xs text-muted-foreground w-9 text-right shrink-0">
+                  {totalMovimentado > 0 ? Math.round((totalEntradas / totalMovimentado) * 100) : 0}%
+                </span>
               </div>
             </div>
           </div>
@@ -168,7 +174,7 @@ export function FinanceOverviewWidget() {
       </div>
 
       {/* Despesas por categoria */}
-      <div className="glass-card glass-card-hover rounded-xl p-5 animate-fade-in" style={{ animationDelay: "50ms" }}>
+      <div className="glass-card glass-card-hover rounded-2xl p-6 animate-fade-in" style={{ animationDelay: "50ms" }}>
         <div className="mb-4">
           <h3 className="font-semibold text-lg">{t("financeCategoryTitle")}</h3>
           <p className="text-sm text-muted-foreground">{t(periodo === "7d" ? "financePeriod7d" : periodo === "30d" ? "financePeriod30d" : "financePeriod3m")}</p>
