@@ -4,24 +4,30 @@
 // O Telegram chama este endereço a cada mensagem enviada ao bot.
 //
 // Tudo acontece ANTES de responder o HTTP: interpretar, ler/escrever o
-// Firestore quando o comando precisa (vínculo, desvínculo), enviar a
-// resposta no chat e só então devolver 200. Nada fica rodando depois da
-// resposta — numa função serverless isso não é garantido, e o trabalho
-// poderia ser cortado no meio.
+// Firestore quando o comando precisa (vínculo, desvínculo, transações),
+// enviar a resposta no chat e só então devolver 200. Nada fica rodando
+// depois da resposta — numa função serverless isso não é garantido, e o
+// trabalho poderia ser cortado no meio.
 //
 // Sobre o status devolvido: qualquer coisa diferente de 2xx faz o Telegram
 // reenviar o mesmo update depois. Por isso, se a mensagem de resposta falhar,
 // o webhook ainda devolve 200: reenviar não conserta um token errado, e uma
-// resposta perdida não estraga nenhum dado.
+// resposta perdida não estraga nenhum dado. Quem registra transação (Fase 3)
+// usa um ID determinístico a partir do update_id, então um reenvio de
+// verdade também não duplica lançamento.
 
 import { responder, type Io, type TelegramUpdate } from "../_lib/telegram/bot.js";
 import { enviarMensagem } from "../_lib/telegram/cliente.js";
 import { CABECALHO_SEGREDO, segredoValido } from "../_lib/telegram/seguranca.js";
 import { desvincularPorChat, vincularPorCodigo } from "../_lib/telegram/vinculo.js";
+import { desfazerUltima, listarUltimas, registrarTransacao } from "../_lib/telegram/transacoes.js";
 
 const io: Io = {
   vincular: vincularPorCodigo,
   desvincular: desvincularPorChat,
+  registrar: registrarTransacao,
+  ultimas: listarUltimas,
+  desfazer: desfazerUltima,
 };
 
 export async function POST(request: Request): Promise<Response> {
@@ -48,9 +54,9 @@ export async function POST(request: Request): Promise<Response> {
   try {
     resposta = await responder(update, io);
   } catch (erro) {
-    // Uma falha no Firestore (vincular/desvincular) não pode derrubar o
-    // webhook: o Telegram reenviaria o mesmo update, e o problema continuaria
-    // o mesmo. A pessoa só fica sem resposta desta vez.
+    // Uma falha no Firestore (vincular/desvincular/registrar) não pode
+    // derrubar o webhook: o Telegram reenviaria o mesmo update, e o problema
+    // continuaria o mesmo. A pessoa só fica sem resposta desta vez.
     console.error("[telegram] falha ao processar update:", erro);
     resposta = null;
   }

@@ -110,6 +110,13 @@ export async function desvincularPorUid(uid: string): Promise<void> {
   await desvincularUid(uid);
 }
 
+
+/** Chamada por transacoes.ts (registrar/ultimas/desfazer) pra saber de quem é o chat. */
+export async function obterUidPorChat(chatId: number): Promise<string | null> {
+  const snap = await db().collection("telegramChats").doc(String(chatId)).get();
+  if (!snap.exists) return null;
+  return (snap.data() as { uid: string }).uid;
+}
 /** Chamada pelo webhook quando a pessoa manda /desvincular no bot. Devolve o texto da resposta. */
 export async function desvincularPorChat(chatId: number): Promise<string> {
   const chatIdStr = String(chatId);

@@ -8,11 +8,14 @@ function privado(text?: string): TelegramUpdate {
   };
 }
 
-/** io de teste: nunca deveria ser chamada nos casos que não envolvem vínculo. */
+/** io de teste: nunca deveria ser chamada nos casos que não envolvem I/O nenhum. */
 function ioFalso(): Io {
   return {
     vincular: vi.fn(async () => "nunca deveria chamar vincular aqui"),
     desvincular: vi.fn(async () => "nunca deveria chamar desvincular aqui"),
+    registrar: vi.fn(async () => "nunca deveria chamar registrar aqui"),
+    ultimas: vi.fn(async () => "nunca deveria chamar ultimas aqui"),
+    desfazer: vi.fn(async () => "nunca deveria chamar desfazer aqui"),
   };
 }
 
@@ -38,7 +41,7 @@ describe("lerComando", () => {
   });
 });
 
-describe("responder", () => {
+describe("responder — vínculo (Fase 2)", () => {
   it("/start sem código dá as boas-vindas, sem chamar o io", async () => {
     const io = ioFalso();
     await expect(responder(privado("/start"), io)).resolves.toEqual({ chatId: 42, texto: MENSAGENS.boasVindas });
@@ -67,15 +70,103 @@ describe("responder", () => {
     expect(io.desvincular).toHaveBeenCalledWith(42);
     expect(resposta).toEqual({ chatId: 42, texto: "desvinculado!" });
   });
+});
 
-  it("comando que não existe avisa e aponta para a ajuda", async () => {
+describe("responder — texto livre vira lançamento (Fase 3)", () => {
+  it("mensagem com valor identificável chama io.registrar com o update_id", async () => {
     const io = ioFalso();
-    expect((await responder(privado("/gasto 10 pão"), io))?.texto).toBe(MENSAGENS.comandoDesconhecido);
+    io.registrar = vi.fn(async () => "✅ registrado");
+    const update = privado("gastei 25,90 no mercado");
+    const resposta = await responder(update, io);
+    expect(io.registrar).toHaveBeenCalledWith(42, update.update_id, {
+      type: "expense",
+      amount: 25.9,
+      description: "mercado",
+    });
+    expect(resposta).toEqual({ chatId: 42, texto: "✅ registrado" });
   });
 
-  it("texto comum avisa que o registro ainda não existe", async () => {
+  it("uber 18 — sem verbo, ainda assim registra como gasto", async () => {
     const io = ioFalso();
-    expect((await responder(privado("gastei 25,90 mercado"), io))?.texto).toBe(MENSAGENS.textoAindaNao);
+    io.registrar = vi.fn(async () => "✅ registrado");
+    await responder(privado("uber 18"), io);
+    expect(io.registrar).toHaveBeenCalledWith(
+      42,
+      1,
+      expect.objectContaining({ type: "expense", amount: 18, description: "uber" })
+    );
+  });
+
+  it("recebi 2500 de salário — vira receita", async () => {
+    const io = ioFalso();
+    io.registrar = vi.fn(async () => "✅ registrado");
+    await responder(privado("recebi 2500 de salário"), io);
+    expect(io.registrar).toHaveBeenCalledWith(
+      42,
+      1,
+      expect.objectContaining({ type: "income", amount: 2500, description: "salário" })
+    );
+  });
+
+  it("mensagem sem valor identificável não chama o io, pede pra reformular", async () => {
+    const io = ioFalso();
+    const resposta = await responder(privado("almoço no shopping"), io);
+    expect(io.registrar).not.toHaveBeenCalled();
+    expect(resposta?.texto).toBe(MENSAGENS.naoEntendi);
+  });
+
+  it("mensagem ambígua (só o valor, sem descrição) não chama o io", async () => {
+    const io = ioFalso();
+    const resposta = await responder(privado("30"), io);
+    expect(io.registrar).not.toHaveBeenCalled();
+    expect(resposta?.texto).toBe(MENSAGENS.naoEntendi);
+  });
+});
+
+describe("responder — comandos /gasto, /entrada, /ultimas, /desfazer (Fase 3)", () => {
+  it("/gasto 30 mercado chama io.registrar como despesa", async () => {
+    const io = ioFalso();
+    io.registrar = vi.fn(async () => "✅ gasto ok");
+    const resposta = await responder(privado("/gasto 30 mercado"), io);
+    expect(io.registrar).toHaveBeenCalledWith(42, 1, { type: "expense", amount: 30, description: "mercado" });
+    expect(resposta).toEqual({ chatId: 42, texto: "✅ gasto ok" });
+  });
+
+  it("/entrada 2500 salário chama io.registrar como receita", async () => {
+    const io = ioFalso();
+    io.registrar = vi.fn(async () => "✅ entrada ok");
+    await responder(privado("/entrada 2500 salário"), io);
+    expect(io.registrar).toHaveBeenCalledWith(42, 1, { type: "income", amount: 2500, description: "salário" });
+  });
+
+  it("/gasto sem valor reconhecível não chama o io", async () => {
+    const io = ioFalso();
+    const resposta = await responder(privado("/gasto mercado"), io);
+    expect(io.registrar).not.toHaveBeenCalled();
+    expect(resposta?.texto).toBe(MENSAGENS.naoEntendi);
+  });
+
+  it("/ultimas chama io.ultimas", async () => {
+    const io = ioFalso();
+    io.ultimas = vi.fn(async () => "lista de transações");
+    const resposta = await responder(privado("/ultimas"), io);
+    expect(io.ultimas).toHaveBeenCalledWith(42);
+    expect(resposta).toEqual({ chatId: 42, texto: "lista de transações" });
+  });
+
+  it("/desfazer chama io.desfazer", async () => {
+    const io = ioFalso();
+    io.desfazer = vi.fn(async () => "desfeito");
+    const resposta = await responder(privado("/desfazer"), io);
+    expect(io.desfazer).toHaveBeenCalledWith(42);
+    expect(resposta).toEqual({ chatId: 42, texto: "desfeito" });
+  });
+});
+
+describe("responder — casos gerais", () => {
+  it("comando que não existe avisa e aponta para a ajuda", async () => {
+    const io = ioFalso();
+    expect((await responder(privado("/rota-inexistente 10 x"), io))?.texto).toBe(MENSAGENS.comandoDesconhecido);
   });
 
   it("mensagem sem texto (áudio, foto) avisa que só entende texto", async () => {
@@ -87,9 +178,10 @@ describe("responder", () => {
     const io = ioFalso();
     const grupo: TelegramUpdate = {
       update_id: 2,
-      message: { message_id: 11, chat: { id: -100, type: "group" }, text: "/ajuda" },
+      message: { message_id: 11, chat: { id: -100, type: "group" }, text: "gastei 30 no mercado" },
     };
     await expect(responder(grupo, io)).resolves.toBeNull();
+    expect(io.registrar).not.toHaveBeenCalled();
     expect(io.vincular).not.toHaveBeenCalled();
     expect(io.desvincular).not.toHaveBeenCalled();
   });

@@ -7,8 +7,14 @@
 // sem Firestore de verdade. Quem envia a resposta e quem monta o `io` de
 // produção é o webhook.
 //
+// A interpretação de texto livre e dos comandos /gasto e /entrada (valor,
+// tipo, descrição) é feita pelo parser.ts, também puro — este arquivo só
+// decide QUAL comando é e, se precisar gravar algo, chama o `io`.
+//
 // A pasta começa com "_" de propósito: a Vercel não transforma o que está em
 // api/_lib em endpoint público.
+
+import { interpretarComando, interpretarMensagem, type TransacaoInterpretada } from "./parser.js";
 
 /** Só o pedaço do update que o bot usa. O Telegram manda muito mais. */
 export interface TelegramUpdate {
@@ -26,38 +32,47 @@ export interface Resposta {
 }
 
 /**
- * O que os comandos /start CODIGO e /desvincular precisam fazer, além de
- * responder — ambos leem e escrevem no Firestore. Injetado para o bot.ts
- * continuar puro e testável sem depender do Admin SDK.
+ * O que os comandos precisam fazer além de responder — todos leem e/ou
+ * escrevem no Firestore. Injetado para o bot.ts continuar puro e testável
+ * sem depender do Admin SDK.
  */
 export interface Io {
   vincular: (chatId: number, codigo: string) => Promise<string>;
   desvincular: (chatId: number) => Promise<string>;
+  registrar: (chatId: number, updateId: number, transacao: TransacaoInterpretada) => Promise<string>;
+  ultimas: (chatId: number) => Promise<string>;
+  desfazer: (chatId: number) => Promise<string>;
 }
 
 export const MENSAGENS = {
   boasVindas: [
     "Olá! 👋 Eu sou o bot do Minha Rotina.",
     "",
-    "Em breve você vai poder registrar gastos e entradas mandando uma mensagem aqui, e eles vão aparecer direto nas suas Finanças.",
+    "Registre gastos e entradas mandando uma mensagem aqui, e eles aparecem direto nas suas Finanças.",
     "",
-    "Veja o que já dá para fazer em /ajuda.",
+    "Veja como em /ajuda.",
   ].join("\n"),
 
   ajuda: [
     "📋 Comandos disponíveis",
     "",
-    "/start – apresentação do bot",
-    "/ajuda – esta lista",
-    "/desvincular – desfaz o vínculo desta conta com o Telegram",
+    "Registrar por texto — em qualquer ordem, à vontade:",
+    "• gastei 30 reais no mercado",
+    "• recebi 2500 de salário",
+    "• uber 18",
     "",
-    "🔜 Em breve",
-    "• Registrar por texto, por exemplo: gastei 25,90 mercado",
-    "• Ver o saldo do mês e desfazer o último registro",
+    "Ou por comando:",
+    "/gasto 30 mercado",
+    "/entrada 2500 salário",
+    "",
+    "/ultimas – suas últimas transações",
+    "/desfazer – apaga a última transação registrada por aqui",
+    "/desvincular – desfaz o vínculo desta conta com o Telegram",
+    "/ajuda – esta lista",
   ].join("\n"),
 
-  textoAindaNao:
-    "Ainda não sei registrar mensagens — isso chega em breve. Por enquanto, veja /ajuda.",
+  naoEntendi:
+    "Não consegui identificar um valor nessa mensagem. Tenta assim: \"gastei 30 no mercado\" ou /gasto 30 mercado.",
 
   comandoDesconhecido: "Não conheço esse comando. Veja os disponíveis em /ajuda.",
 
@@ -96,7 +111,13 @@ export async function responder(update: TelegramUpdate, io: Io): Promise<Respost
   if (texto === undefined) return { chatId, texto: MENSAGENS.soTexto };
 
   const cmd = lerComando(texto);
-  if (!cmd) return { chatId, texto: MENSAGENS.textoAindaNao };
+
+  // Não é comando: tenta interpretar como lançamento livre ("uber 18").
+  if (!cmd) {
+    const transacao = interpretarMensagem(texto);
+    if (!transacao) return { chatId, texto: MENSAGENS.naoEntendi };
+    return { chatId, texto: await io.registrar(chatId, update.update_id, transacao) };
+  }
 
   switch (cmd.comando) {
     case "start":
@@ -111,6 +132,20 @@ export async function responder(update: TelegramUpdate, io: Io): Promise<Respost
       return { chatId, texto: MENSAGENS.ajuda };
     case "desvincular":
       return { chatId, texto: await io.desvincular(chatId) };
+    case "gasto": {
+      const transacao = interpretarComando("expense", cmd.argumento);
+      if (!transacao) return { chatId, texto: MENSAGENS.naoEntendi };
+      return { chatId, texto: await io.registrar(chatId, update.update_id, transacao) };
+    }
+    case "entrada": {
+      const transacao = interpretarComando("income", cmd.argumento);
+      if (!transacao) return { chatId, texto: MENSAGENS.naoEntendi };
+      return { chatId, texto: await io.registrar(chatId, update.update_id, transacao) };
+    }
+    case "ultimas":
+      return { chatId, texto: await io.ultimas(chatId) };
+    case "desfazer":
+      return { chatId, texto: await io.desfazer(chatId) };
     default:
       return { chatId, texto: MENSAGENS.comandoDesconhecido };
   }
