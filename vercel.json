@@ -17,7 +17,7 @@
       "destination": "https://minha-rotina-4524d.firebaseapp.com/__/auth/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
