@@ -250,4 +250,30 @@
   .rotulo-kpi {
     @apply text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground;
   }
+
+  /* Mural de cortiça da página de Notas, com moldura de madeira. */
+  .mural {
+    min-height: calc(100vh - 190px);
+    background-color: #e6d1ae;
+    background-image:
+      radial-gradient(rgba(122, 84, 38, 0.2) 1px, transparent 1.5px),
+      radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1.5px);
+    background-size: 13px 13px, 17px 17px;
+    background-position: 0 0, 6px 8px;
+    box-shadow:
+      inset 0 0 0 10px #d6b98c,
+      inset 0 0 0 11px rgba(90, 60, 25, 0.25),
+      inset 0 8px 22px rgba(90, 60, 25, 0.25);
+  }
+
+  .dark .mural {
+    background-color: #3a2f26;
+    background-image:
+      radial-gradient(rgba(0, 0, 0, 0.3) 1px, transparent 1.5px),
+      radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1.5px);
+    box-shadow:
+      inset 0 0 0 10px #2a211a,
+      inset 0 0 0 11px rgba(0, 0, 0, 0.4),
+      inset 0 8px 22px rgba(0, 0, 0, 0.4);
+  }
 }
