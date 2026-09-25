@@ -16,20 +16,28 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocale } from "@/contexts/LocaleContext";
 import { executar } from "@/lib/acoes";
+import { useContas } from "@/lib/aoVivo";
+import { ICONES_META, lerMeta, lerNumero, mesCurto, progressoDe, somarMesesAoMes, sugerirIcone, textosLegados, type TipoMeta } from "@/lib/metas";
+import { useTextosMeta } from "@/components/metas/Metas";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { dayKey } from "@/lib/dates";
 import {
   billsApi,
+  carteiraApi,
   CATEGORIAS_TRANSACAO,
   goalsApi,
   transactionsApi,
   type Bill,
+  type Carteira,
   type CategoriaTransacao,
   type Goal,
   type Transaction,
 } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { lerValor } from "./calculos";
-import { CATEGORIAS_CONTA, normalizarCategoria } from "./categorias";
+import { normalizarCategoria } from "./categorias";
+import { CATEGORIAS_CONTA, classificar, gerarRepeticoes, proximasParcelas, vencimentoDe } from "./contas";
+import { reais } from "./formato";
 
 function valorParaTexto(v: number | undefined) {
   if (v === undefined) return "";
@@ -661,35 +669,138 @@ export function AjustarSaldoDialog({
 // Meta
 // ----------------------------------------------
 
+function mesAtual() {
+  return dayKey().slice(0, 7);
+}
+
 export function MetaDialog({ aberto, onFechar, inicial }: { aberto: boolean; onFechar: () => void; inicial?: Goal }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [titulo, setTitulo] = useState("");
-  const [objetivo, setObjetivo] = useState("");
-  const [prazo, setPrazo] = useState("");
+  const [icone, setIcone] = useState<string | null>(null);
+  const [tipo, setTipo] = useState<TipoMeta>("quantidade");
+  const [alvo, setAlvo] = useState("");
+  const [atual, setAtual] = useState("");
+  const [unidade, setUnidade] = useState("");
+  const [objetivoTexto, setObjetivoTexto] = useState("");
+  const [longo, setLongo] = useState(false);
+  const [prazo, setPrazo] = useState(somarMesesAoMes(mesAtual(), 12));
+  const [escolhendoIcone, setEscolhendoIcone] = useState(false);
+  const [confirmarExclusao, setConfirmarExclusao] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     if (!aberto) return;
-    setTitulo(inicial?.title ?? "");
-    setObjetivo(inicial?.target ?? "");
-    setPrazo(inicial && inicial.deadline !== t("goalsNoDeadline") ? inicial.deadline : "");
-  }, [aberto, inicial, t]);
+    setConfirmarExclusao(false);
+    if (!inicial) {
+      setTitulo("");
+      setIcone(null);
+      setTipo("quantidade");
+      setAlvo("");
+      setAtual("");
+      setUnidade("");
+      setObjetivoTexto("");
+      setLongo(false);
+      setPrazo(somarMesesAoMes(mesAtual(), 12));
+      return;
+    }
+    const v = lerMeta(inicial);
+    setTitulo(inicial.title);
+    setIcone(inicial.icone ?? null);
+    setTipo(v.tipo);
+    setAlvo(v.tipo === "porcentagem" ? "" : valorParaTexto(v.alvo));
+    setAtual(valorParaTexto(v.atual));
+    setUnidade(v.unidade);
+    setObjetivoTexto(v.tipo === "porcentagem" ? inicial.target : "");
+    setLongo(!v.prazo);
+    setPrazo(v.prazo ?? somarMesesAoMes(mesAtual(), 12));
+  }, [aberto, inicial]);
 
-  const podeSalvar = titulo.trim().length > 0 && objetivo.trim().length > 0;
+  const numAlvo = tipo === "porcentagem" ? 100 : lerNumero(alvo);
+  const numAtual = atual.trim() === "" ? 0 : lerNumero(atual);
+  const iconeFinal = icone ?? sugerirIcone(titulo);
+  const podeSalvar =
+    titulo.trim().length > 0 &&
+    numAlvo !== null &&
+    numAlvo > 0 &&
+    numAtual !== null &&
+    numAtual >= 0 &&
+    (longo || /^\d{4}-\d{2}$/.test(prazo));
+
+  // Como vai ficar, para conferir antes de salvar.
+  const previa = useMemo(() => {
+    if (!podeSalvar || tipo === "porcentagem") return null;
+    const rascunho: Goal = {
+      id: "rascunho",
+      title: titulo,
+      progress: 0,
+      target: "",
+      deadline: "",
+      tipo,
+      alvo: numAlvo!,
+      atual: numAtual!,
+      unidade: unidade.trim(),
+      prazo: longo ? null : prazo,
+    };
+    return lerMeta(rascunho);
+  }, [podeSalvar, tipo, titulo, numAlvo, numAtual, unidade, longo, prazo]);
+  const textos = useTextosMeta();
 
   const salvar = async () => {
+    if (!podeSalvar) return;
     setSalvando(true);
-    const dados = { title: titulo.trim(), target: objetivo.trim(), deadline: prazo.trim() || t("goalsNoDeadline") };
+    const alvoFinal = numAlvo!;
+    const atualFinal = tipo === "porcentagem" ? Math.min(100, numAtual!) : numAtual!;
+    const prazoFinal = longo ? null : prazo;
+    const dados = {
+      title: titulo.trim(),
+      icone: iconeFinal,
+      tipo,
+      alvo: alvoFinal,
+      atual: atualFinal,
+      unidade: tipo === "quantidade" ? unidade.trim() : "",
+      prazo: prazoFinal,
+      progress: progressoDe(atualFinal, alvoFinal),
+      ...textosLegados(
+        { tipo, alvo: alvoFinal, unidade: unidade.trim(), prazo: prazoFinal, objetivoTexto },
+        locale,
+        t("longoPrazo")
+      ),
+    };
     const ok = await executar(
       async () => {
         if (inicial) await goalsApi.update(inicial.id, dados);
-        else await goalsApi.create({ ...dados, progress: 0 });
+        else await goalsApi.create(dados);
       },
       { erro: inicial ? t("erroAoSalvar") : t("erroAoAdicionar") }
     );
     setSalvando(false);
     if (ok !== null) onFechar();
   };
+
+  const excluir = async () => {
+    if (!inicial) return;
+    if (!confirmarExclusao) {
+      setConfirmarExclusao(true);
+      return;
+    }
+    const ok = await executar(() => goalsApi.delete(inicial.id), { erro: t("erroAoExcluir") });
+    if (ok !== null) onFechar();
+  };
+
+  const tipos: { valor: TipoMeta; rotulo: string; dica: string }[] = [
+    { valor: "quantidade", rotulo: t("metaTipoQuantidade"), dica: t("metaTipoQuantidadeDica") },
+    { valor: "dinheiro", rotulo: t("metaTipoDinheiro"), dica: t("metaTipoDinheiroDica") },
+    { valor: "porcentagem", rotulo: t("metaTipoPorcentagem"), dica: t("metaTipoPorcentagemDica") },
+  ];
+
+  const hojeMes = mesAtual();
+  const atalhos: { rotulo: string; mes: string | null }[] = [
+    { rotulo: t("em3Meses"), mes: somarMesesAoMes(hojeMes, 3) },
+    { rotulo: t("em6Meses"), mes: somarMesesAoMes(hojeMes, 6) },
+    { rotulo: t("em12Meses"), mes: somarMesesAoMes(hojeMes, 12) },
+    { rotulo: t("fimDoAno"), mes: `${hojeMes.slice(0, 4)}-12` },
+    { rotulo: t("longoPrazo"), mes: null },
+  ];
 
   return (
     <Janela
@@ -699,18 +810,172 @@ export function MetaDialog({ aberto, onFechar, inicial }: { aberto: boolean; onF
       onSalvar={salvar}
       salvando={salvando}
       podeSalvar={podeSalvar}
+      largura="max-w-lg"
+      rodapeExtra={
+        inicial ? (
+          <button
+            type="button"
+            onClick={excluir}
+            className={cn(
+              "rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors",
+              confirmarExclusao ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-destructive"
+            )}
+          >
+            {confirmarExclusao ? t("cliqueDeNovoExcluir") : t("goalsDelete")}
+          </button>
+        ) : undefined
+      }
     >
       <Campo rotulo={t("goalsNamePlaceholder")}>
-        <Input autoFocus value={titulo} onChange={(e) => setTitulo(e.target.value)} className={campo} placeholder={t("exMeta")} />
+        <div className="flex gap-2">
+          <Popover open={escolhendoIcone} onOpenChange={setEscolhendoIcone}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label={t("escolherIcone")}
+                title={t("escolherIcone")}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-input bg-background text-[22px] transition-colors hover:bg-secondary"
+              >
+                {iconeFinal}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[232px] rounded-2xl p-2">
+              <div className="grid grid-cols-6 gap-1">
+                {ICONES_META.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => {
+                      setIcone(e);
+                      setEscolhendoIcone(false);
+                    }}
+                    className={cn("grid h-8 w-8 place-items-center rounded-lg text-lg hover:bg-secondary", e === iconeFinal && "bg-primary/10 ring-1 ring-primary")}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Input autoFocus value={titulo} onChange={(e) => setTitulo(e.target.value)} className={campo} placeholder={t("exMetaNova")} />
+        </div>
       </Campo>
-      <div className="grid grid-cols-2 gap-3">
-        <Campo rotulo={t("objetivo")}>
-          <Input value={objetivo} onChange={(e) => setObjetivo(e.target.value)} className={campo} placeholder={t("exObjetivo")} />
-        </Campo>
-        <Campo rotulo={t("goalsDeadlinePlaceholder")}>
-          <Input value={prazo} onChange={(e) => setPrazo(e.target.value)} className={campo} placeholder={t("exPrazo")} />
-        </Campo>
+
+      <div className="space-y-1.5">
+        <span className="text-xs font-semibold text-muted-foreground">{t("comoMedir")}</span>
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t("comoMedir")}>
+          {tipos.map((op) => (
+            <button
+              key={op.valor}
+              type="button"
+              role="radio"
+              aria-checked={tipo === op.valor}
+              onClick={() => setTipo(op.valor)}
+              className={cn(
+                "rounded-2xl border px-2 py-2 text-center transition-colors",
+                tipo === op.valor
+                  ? "border-primary bg-primary/[0.07] ring-1 ring-primary"
+                  : "border-border/80 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              )}
+            >
+              <span className="block text-[13px] font-semibold text-foreground">{op.rotulo}</span>
+              <span className="block text-[10.5px] leading-tight text-muted-foreground">{op.dica}</span>
+            </button>
+          ))}
+        </div>
       </div>
+
+      {tipo === "quantidade" && (
+        <div className="grid grid-cols-[1fr_1.3fr_1fr] gap-3">
+          <Campo rotulo={t("metaAlvo")}>
+            <Input inputMode="decimal" value={alvo} onChange={(e) => setAlvo(e.target.value)} className={campo} placeholder="6" />
+          </Campo>
+          <Campo rotulo={t("metaUnidade")}>
+            <Input value={unidade} onChange={(e) => setUnidade(e.target.value)} className={campo} placeholder={t("exUnidade")} />
+          </Campo>
+          <Campo rotulo={t("metaJaTenho")}>
+            <Input inputMode="decimal" value={atual} onChange={(e) => setAtual(e.target.value)} className={campo} placeholder="0" />
+          </Campo>
+        </div>
+      )}
+      {tipo === "dinheiro" && (
+        <div className="grid grid-cols-2 gap-3">
+          <Campo rotulo={t("metaQuantoJuntar")}>
+            <Input inputMode="decimal" value={alvo} onChange={(e) => setAlvo(e.target.value)} className={campo} placeholder="R$ 30.000" />
+          </Campo>
+          <Campo rotulo={t("metaJaGuardei")}>
+            <Input inputMode="decimal" value={atual} onChange={(e) => setAtual(e.target.value)} className={campo} placeholder="R$ 0" />
+          </Campo>
+        </div>
+      )}
+      {tipo === "porcentagem" && (
+        <div className="grid grid-cols-[1.6fr_1fr] gap-3">
+          <Campo rotulo={t("objetivo")}>
+            <Input value={objetivoTexto} onChange={(e) => setObjetivoTexto(e.target.value)} className={campo} placeholder={t("exObjetivoLivre")} />
+          </Campo>
+          <Campo rotulo={t("metaJaAvancei")}>
+            <Input inputMode="numeric" value={atual} onChange={(e) => setAtual(e.target.value)} className={campo} placeholder="0" />
+          </Campo>
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        <span className="text-xs font-semibold text-muted-foreground">{t("goalsDeadlinePlaceholder")}</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {atalhos.map((a) => {
+            const ativo = a.mes === null ? longo : !longo && prazo === a.mes;
+            return (
+              <button
+                key={a.rotulo}
+                type="button"
+                aria-pressed={ativo}
+                onClick={() => {
+                  if (a.mes === null) setLongo(true);
+                  else {
+                    setLongo(false);
+                    setPrazo(a.mes);
+                  }
+                }}
+                className={cn(
+                  "h-9 rounded-xl px-3 text-xs font-semibold transition-colors",
+                  ativo ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/70"
+                )}
+              >
+                {a.rotulo}
+              </button>
+            );
+          })}
+          <Input
+            type="month"
+            aria-label={t("escolherMes")}
+            value={longo ? "" : prazo}
+            min={hojeMes}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              setLongo(false);
+              setPrazo(e.target.value);
+            }}
+            className="h-9 w-[150px] rounded-xl bg-background text-sm"
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {longo ? t("longoPrazoDica") : t("metaAte").replace("{mes}", mesCurto(prazo, locale))}
+        </p>
+      </div>
+
+      {previa && (
+        <div className="flex items-center gap-3 rounded-2xl border border-primary/25 bg-primary/[0.05] px-4 py-3 text-sm" aria-live="polite">
+          <span className="text-2xl leading-none" aria-hidden>
+            {iconeFinal}
+          </span>
+          <span className="min-w-0">
+            <span className="block font-semibold">
+              {textos.quanto(previa)} · {previa.pct}%
+            </span>
+            <span className="block text-xs text-muted-foreground">{textos.ritmo(previa) || textos.prazo(previa)}</span>
+          </span>
+        </div>
+      )}
     </Janela>
   );
 }

@@ -27,7 +27,16 @@ import {
 import { auth, db } from "./firebase";
 import { dayKey, previousDay } from "./dates";
 import { isDoneOn, type HabitUndo } from "./habits";
-import { telegramApi, type Bill, type Goal, type Task, type TelegramStatus, type Transaction } from "./db";
+import {
+  carteiraApi,
+  telegramApi,
+  type Bill,
+  type Carteira,
+  type Goal,
+  type Task,
+  type TelegramStatus,
+  type Transaction,
+} from "./db";
 
 // ----------------------------------------------
 // Tipos como a tela usa
@@ -188,6 +197,14 @@ const metas = criarColecao<Goal>("goals", "createdAt", "asc", (id, d) => ({
   progress: typeof d.progress === "number" ? d.progress : 0,
   target: d.target ?? "",
   deadline: d.deadline ?? "",
+  // Campos novos só entram quando existem: `prazo: undefined` quer dizer
+  // "meta antiga, leia o texto"; `null` quer dizer "longo prazo".
+  ...(d.tipo ? { tipo: d.tipo } : {}),
+  ...(typeof d.alvo === "number" ? { alvo: d.alvo } : {}),
+  ...(typeof d.atual === "number" ? { atual: d.atual } : {}),
+  ...(d.unidade ? { unidade: d.unidade } : {}),
+  ...("prazo" in d ? { prazo: d.prazo ?? null } : {}),
+  ...(d.icone ? { icone: d.icone } : {}),
 }));
 
 const notas = criarColecao<NotaAoVivo>("notes", "createdAt", "desc", (id, d) => ({
@@ -273,7 +290,7 @@ export function useHabitos(): Estado<HabitoAoVivo> {
 export function useManterAoVivo() {
   useEffect(() => {
     const nada = () => {};
-    const cancelar = [tarefas, habitos, metas, notas, contas, transacoes, telegram].map((c) =>
+    const cancelar = [tarefas, habitos, metas, notas, contas, transacoes, telegram, carteira].map((c) =>
       c.subscribe(nada)
     );
     return () => cancelar.forEach((c) => c());

@@ -390,12 +390,26 @@ export const habitsApi = {
 // METAS
 // ==============================================
 
+export type TipoMeta = "quantidade" | "dinheiro" | "porcentagem";
+
 export interface Goal {
   id: string;
   title: string;
+  /** 0 a 100. Sempre gravado: é o que o histórico do dia e as telas antigas leem. */
   progress: number;
+  /** Texto do objetivo ("R$ 30.000", "6 livros"). As metas novas gravam junto, derivado. */
   target: string;
+  /** Texto do prazo ("dez/2026", "Longo prazo"). Idem. */
   deadline: string;
+  // Do jeito novo (src/lib/metas.ts). Ausentes nas metas antigas.
+  tipo?: TipoMeta;
+  alvo?: number;
+  atual?: number;
+  unidade?: string;
+  /** "YYYY-MM" (até o fim desse mês), ou null = longo prazo. */
+  prazo?: string | null;
+  /** Um emoji. */
+  icone?: string;
 }
 
 export const goalsApi = {
