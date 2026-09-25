@@ -1,6 +1,5 @@
 import { WeeklyChart } from "@/components/dashboard/WeeklyChart";
 import { GoalsWidget } from "@/components/dashboard/GoalsWidget";
-import { RoutineCategories } from "@/components/dashboard/RoutineCategories";
 import { Navigate, useLocation } from "react-router-dom";
 import { useTelaGrande } from "@/hooks/useTelaGrande";
 import RotinaDesktop from "@/desktop/paginas/Rotina";
@@ -20,7 +19,6 @@ export default function Progresso() {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-start">
       <div className="space-y-4 sm:space-y-6">
         <WeeklyChart />
-        <RoutineCategories />
       </div>
       <GoalsWidget />
     </div>
