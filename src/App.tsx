@@ -40,6 +40,8 @@ function Conteudo() {
         >
           <Route path="/" element={<Hoje />} />
           <Route path="/progresso" element={<Progresso />} />
+          {/* Mesmo conteúdo: no computador a aba se chama Rotina. */}
+          <Route path="/rotina" element={<Progresso />} />
           <Route path="/financas" element={<Financas />} />
           <Route path="/notas" element={<Notas />} />
         </Route>

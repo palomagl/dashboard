@@ -3,6 +3,8 @@ import { Sun, TrendingUp, Wallet, StickyNote } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { useLocale } from "@/contexts/LocaleContext";
 import type { TranslationKey } from "@/lib/translations";
+import { useTelaGrande } from "@/hooks/useTelaGrande";
+import { DesktopShell } from "@/desktop/DesktopShell";
 
 // A mesma navegação em dois formatos: barra fixa embaixo no celular, onde o
 // polegar alcança, e pílulas no topo no computador, onde o mouse já está.
@@ -13,7 +15,14 @@ const ABAS: { para: string; rotulo: TranslationKey; Icone: React.ElementType }[]
   { para: "/notas", rotulo: "tabNotas", Icone: StickyNote },
 ];
 
+// Notebook e monitor (>= 1024px) ganham um layout próprio, com menu lateral
+// (src/desktop). Daqui para baixo é o layout de celular, que não mudou.
 export function AppShell() {
+  const telaGrande = useTelaGrande();
+  return telaGrande ? <DesktopShell /> : <AppShellCelular />;
+}
+
+function AppShellCelular() {
   const { t } = useLocale();
 
   return (

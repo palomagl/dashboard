@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, User, Send } from "lucide-react";
 import { toast } from "sonner";
+import { useTelaGrande } from "@/hooks/useTelaGrande";
+import ContaDesktop from "@/desktop/paginas/Conta";
 
 export default function Account() {
   const { user, setUser } = useAuth();
@@ -77,6 +79,27 @@ export default function Account() {
       setDesvinculando(false);
     }
   };
+
+  // No notebook/monitor a página abre dentro do layout com menu lateral.
+  const telaGrande = useTelaGrande();
+  if (telaGrande) {
+    return (
+      <ContaDesktop
+        name={name}
+        setName={setName}
+        salvando={salvando}
+        erro={erro}
+        salvarPerfil={salvarPerfil}
+        telegram={telegram}
+        codigo={codigo}
+        gerando={gerando}
+        desvinculando={desvinculando}
+        erroTelegram={erroTelegram}
+        gerarCodigoTelegram={gerarCodigoTelegram}
+        desvincularTelegram={desvincularTelegram}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

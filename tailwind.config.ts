@@ -5,6 +5,16 @@ export default {
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
   theme: {
+    // Mesmos pontos de sempre, mais o "wide" (1600px): a partir dele o menu
+    // lateral do computador mostra os nomes; abaixo, só os ícones.
+    screens: {
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      wide: "1600px",
+      "2xl": "1536px",
+    },
     container: {
       center: true,
       padding: "1.5rem",
@@ -15,6 +25,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        script: ['Caveat', 'cursive'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -60,6 +71,8 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        positivo: "hsl(var(--positivo))",
+        negativo: "hsl(var(--negativo))",
         widget: {
           tasks: "hsl(var(--widget-tasks))",
           habits: "hsl(var(--widget-habits))",

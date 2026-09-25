@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Caveat:wght@600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -170,4 +170,84 @@
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/30;
+}
+
+/* ==============================================
+   Notebook e monitor (>= 1024px)
+   ==============================================
+   O layout de computador liga a classe "desk" no <html> enquanto está na
+   tela (ver src/desktop/DesktopShell.tsx). Tudo aqui só vale com ela, então
+   o celular continua exatamente como era. Fica no <html>, e não numa div,
+   para que janelas, menus e popovers (que o Radix desenha fora da árvore)
+   também herdem a mesma paleta. */
+@layer base {
+  :root {
+    --positivo: 164 80% 29%;
+    --negativo: 345 68% 48%;
+  }
+  .dark {
+    --positivo: 164 60% 52%;
+    --negativo: 345 80% 70%;
+  }
+
+  .desk {
+    --background: 160 20% 97%;
+    --foreground: 205 32% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 205 32% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 205 32% 14%;
+    --secondary: 160 18% 95.5%;
+    --secondary-foreground: 205 28% 20%;
+    --muted: 160 18% 95.5%;
+    --muted-foreground: 205 10% 46%;
+    --border: 165 16% 91%;
+    --input: 165 14% 88%;
+    --sidebar-background: 160 30% 98.6%;
+    --sidebar-foreground: 205 20% 30%;
+    --sidebar-border: 165 16% 91%;
+    --shadow-card: 0 1px 2px hsl(205 32% 14% / 0.04), 0 12px 32px -20px hsl(205 32% 14% / 0.16);
+    --shadow-hover: 0 1px 2px hsl(205 32% 14% / 0.05), 0 18px 40px -22px hsl(205 32% 14% / 0.22);
+  }
+
+  .dark.desk {
+    --background: 200 24% 7%;
+    --foreground: 180 12% 94%;
+    --card: 200 22% 10%;
+    --card-foreground: 180 12% 94%;
+    --popover: 200 22% 11%;
+    --popover-foreground: 180 12% 94%;
+    --secondary: 200 18% 14%;
+    --secondary-foreground: 180 12% 94%;
+    --muted: 200 18% 14%;
+    --muted-foreground: 200 8% 62%;
+    --border: 200 16% 17%;
+    --input: 200 16% 21%;
+    --sidebar-background: 200 24% 8.5%;
+    --sidebar-foreground: 200 10% 80%;
+    --sidebar-border: 200 16% 15%;
+    --shadow-card: 0 1px 2px hsl(0 0% 0% / 0.3), 0 12px 32px -20px hsl(0 0% 0% / 0.6);
+    --shadow-hover: 0 1px 2px hsl(0 0% 0% / 0.35), 0 18px 40px -22px hsl(0 0% 0% / 0.7);
+  }
+}
+
+@layer components {
+  /* O card padrão do layout de computador: branco, borda fininha, sombra
+     quase imperceptível e cantos bem arredondados, como nas referências. */
+  .cartao {
+    @apply rounded-[20px] border border-border/80 bg-card text-card-foreground;
+    box-shadow: var(--shadow-card);
+  }
+
+  .cartao-interativo {
+    @apply transition-[box-shadow,border-color] duration-300;
+  }
+
+  .cartao-interativo:hover {
+    box-shadow: var(--shadow-hover);
+  }
+
+  .rotulo-kpi {
+    @apply text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground;
+  }
 }
