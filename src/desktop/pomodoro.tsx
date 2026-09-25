@@ -2,12 +2,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { toast } from "sonner";
 import { useLocale } from "@/contexts/LocaleContext";
 import { diasApi } from "@/lib/db";
+import { segundosDo, useTemposPomodoro, type ModoPomodoro, type TemposPomodoro } from "@/lib/pomodoro";
 
 // ==============================================
 // Pomodoro do computador
 // ==============================================
-// Mesmo comportamento do widget do celular (25/5/15, pausa longa a cada 4
-// focos, sessões do dia salvas neste navegador — com as mesmas chaves), mas:
+// Mesmo comportamento do widget do celular (tempos escolhidos em
+// src/lib/pomodoro.ts — 25/5/15 de padrão —, pausa longa a cada N focos,
+// sessões do dia salvas neste navegador com as mesmas chaves), mas:
 //
 // - mora no layout, não no card: trocar de página não zera o timer, e o menu
 //   lateral mostra o tempo enquanto ele corre;
@@ -16,13 +18,7 @@ import { diasApi } from "@/lib/db";
 //   antigo andava mais devagar que o tempo de verdade;
 // - mostra o tempo no título da aba.
 
-export type ModoPomodoro = "focus" | "short" | "long";
-
-export const DURACOES: Record<ModoPomodoro, number> = {
-  focus: 25 * 60,
-  short: 5 * 60,
-  long: 15 * 60,
-};
+export type { ModoPomodoro };
 
 const SESSOES = "mr_pomodoro_sessions";
 const CICLO = "mr_pomodoro_cycle";
@@ -74,8 +70,10 @@ interface EstadoPomodoro {
   /** 0..1 */
   progresso: number;
   sessoesHoje: number;
-  /** Focos concluídos no ciclo atual de 4. */
+  /** Focos concluídos no ciclo atual. */
   ciclo: number;
+  /** Os tempos escolhidos (minutos) e quantos focos tem o ciclo. */
+  tempos: TemposPomodoro;
   /** Começou e ainda não terminou (rodando ou pausado no meio). */
   emAndamento: boolean;
   alternar: () => void;
@@ -88,9 +86,11 @@ const Contexto = createContext<EstadoPomodoro | null>(null);
 
 export function PomodoroProvider({ children }: { children: ReactNode }) {
   const { t } = useLocale();
+  const tempos = useTemposPomodoro();
   const [modo, setModo] = useState<ModoPomodoro>("focus");
   const [fimEm, setFimEm] = useState<number | null>(null); // rodando: hora de término
-  const [restantePausado, setRestantePausado] = useState(DURACOES.focus);
+  const [restantePausado, setRestantePausado] = useState(() => segundosDo("focus", tempos));
+  const duracao = segundosDo(modo, tempos);
   const [agora, setAgora] = useState(() => Date.now());
   const [sessoesHoje, setSessoesHoje] = useState(lerSessoesHoje);
   const [ciclo, setCiclo] = useState(() => {
@@ -105,18 +105,30 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   const rodando = fimEm !== null;
   const restante = rodando ? Math.max(0, Math.ceil((fimEm - agora) / 1000)) : restantePausado;
 
-  const trocarModo = useCallback((m: ModoPomodoro) => {
-    setModo(m);
-    setFimEm(null);
-    setRestantePausado(DURACOES[m]);
-  }, []);
+  const trocarModo = useCallback(
+    (m: ModoPomodoro) => {
+      setModo(m);
+      setFimEm(null);
+      setRestantePausado(segundosDo(m, tempos));
+    },
+    [tempos]
+  );
+
+  // Mudou os tempos com o timer parado no começo: já mostra o novo tempo.
+  // No meio de uma sessão, ela termina com o tempo que começou.
+  const duracaoAnterior = useRef(duracao);
+  useEffect(() => {
+    if (!rodando && restantePausado === duracaoAnterior.current) setRestantePausado(duracao);
+    duracaoAnterior.current = duracao;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duracao]);
 
   const concluir = useCallback(() => {
     tocarAviso();
     if (modo === "focus") {
       const total = sessoesHoje + 1;
       setSessoesHoje(total);
-      const proximoCiclo = (ciclo + 1) % 4;
+      const proximoCiclo = (ciclo + 1) % tempos.ciclo;
       setCiclo(proximoCiclo);
       try {
         localStorage.setItem(SESSOES, JSON.stringify({ date: chaveHoje(), count: total }));
@@ -132,7 +144,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       toast.success(t("pomodoroBreakDone"));
       trocarModo("focus");
     }
-  }, [modo, sessoesHoje, ciclo, trocarModo, t]);
+  }, [modo, sessoesHoje, ciclo, trocarModo, t, tempos.ciclo]);
 
   // Relógio: só anda enquanto roda.
   useEffect(() => {
@@ -173,8 +185,8 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
 
   const reiniciar = useCallback(() => {
     setFimEm(null);
-    setRestantePausado(DURACOES[modo]);
-  }, [modo]);
+    setRestantePausado(duracao);
+  }, [duracao]);
 
   const pular = useCallback(() => {
     setFimEm(null);
@@ -187,16 +199,17 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       modo,
       rodando,
       restante,
-      progresso: 1 - restante / DURACOES[modo],
+      progresso: Math.max(0, Math.min(1, 1 - restante / duracao)),
       sessoesHoje,
-      ciclo,
-      emAndamento: rodando || restante < DURACOES[modo],
+      ciclo: Math.min(ciclo, tempos.ciclo),
+      tempos,
+      emAndamento: rodando || restante < duracao,
       alternar,
       reiniciar,
       pular,
       trocarModo,
     }),
-    [modo, rodando, restante, sessoesHoje, ciclo, alternar, reiniciar, pular, trocarModo]
+    [modo, rodando, restante, duracao, sessoesHoje, ciclo, tempos, alternar, reiniciar, pular, trocarModo]
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

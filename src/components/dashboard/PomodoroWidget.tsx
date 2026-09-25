@@ -3,14 +3,8 @@ import { Play, Pause, RotateCcw, SkipForward, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/contexts/LocaleContext";
 import { diasApi } from "@/lib/db";
-
-type Mode = "focus" | "short" | "long";
-
-const DURATIONS: Record<Mode, number> = {
-  focus: 25 * 60,
-  short: 5 * 60,
-  long: 15 * 60,
-};
+import { minutosCurto, segundosDo, useTemposPomodoro, type ModoPomodoro as Mode } from "@/lib/pomodoro";
+import { AjustesPomodoro } from "@/components/pomodoro/AjustesPomodoro";
 
 const SESSIONS_KEY = "mr_pomodoro_sessions";
 const CYCLE_KEY = "mr_pomodoro_cycle";
@@ -60,11 +54,12 @@ function playChime() {
 
 export function PomodoroWidget() {
   const { t } = useLocale();
+  const tempos = useTemposPomodoro();
   const [mode, setMode] = useState<Mode>("focus");
-  const [secondsLeft, setSecondsLeft] = useState(DURATIONS.focus);
+  const [secondsLeft, setSecondsLeft] = useState(() => segundosDo("focus", tempos));
   const [running, setRunning] = useState(false);
   const [sessionsToday, setSessionsToday] = useState(0);
-  const [cycle, setCycle] = useState(0); // completed focus sessions in current 4-cycle
+  const [cycle, setCycle] = useState(0); // focos concluídos no ciclo atual (até a pausa longa)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -78,11 +73,20 @@ export function PomodoroWidget() {
   const switchMode = useCallback(
     (next: Mode, autoStart: boolean) => {
       setMode(next);
-      setSecondsLeft(DURATIONS[next]);
+      setSecondsLeft(segundosDo(next, tempos));
       setRunning(autoStart);
     },
-    []
+    [tempos]
   );
+
+  // Tempos mudaram com o timer parado no começo: já mostra o novo tempo.
+  const total = segundosDo(mode, tempos);
+  const totalAnterior = useRef(total);
+  useEffect(() => {
+    if (!running && secondsLeft === totalAnterior.current) setSecondsLeft(total);
+    totalAnterior.current = total;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total]);
 
   const handleComplete = useCallback(() => {
     playChime();
@@ -90,7 +94,7 @@ export function PomodoroWidget() {
       const nextCount = sessionsToday + 1;
       setSessionsToday(nextCount);
       writeSessionsToday(nextCount);
-      const nextCycle = (cycle + 1) % 4;
+      const nextCycle = (cycle + 1) % tempos.ciclo;
       setCycle(nextCycle);
       try {
         localStorage.setItem(CYCLE_KEY, String(nextCycle));
@@ -103,7 +107,7 @@ export function PomodoroWidget() {
       toast.success(t("pomodoroBreakDone"));
       switchMode("focus", false);
     }
-  }, [mode, sessionsToday, cycle, switchMode, t]);
+  }, [mode, sessionsToday, cycle, switchMode, t, tempos.ciclo]);
 
   useEffect(() => {
     if (!running) return;
@@ -125,7 +129,7 @@ export function PomodoroWidget() {
   const toggleRunning = () => setRunning((r) => !r);
   const reset = () => {
     setRunning(false);
-    setSecondsLeft(DURATIONS[mode]);
+    setSecondsLeft(total);
   };
   const skip = () => {
     setRunning(false);
@@ -136,8 +140,7 @@ export function PomodoroWidget() {
     }
   };
 
-  const total = DURATIONS[mode];
-  const progress = 1 - secondsLeft / total;
+  const progress = Math.max(0, Math.min(1, 1 - secondsLeft / total));
   const minutes = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
   const seconds = String(secondsLeft % 60).padStart(2, "0");
 
@@ -158,10 +161,13 @@ export function PomodoroWidget() {
           </h3>
           <p className="text-sm text-muted-foreground">{t("pomodoroSubtitle")}</p>
         </div>
-        <span className="flex items-center gap-1 text-xs font-medium text-widget-focus bg-widget-focus/10 border border-widget-focus/20 rounded-full px-2.5 py-1">
-          <Flame className="w-3.5 h-3.5" />
-          {sessionsToday} {t("pomodoroSessionsToday")}
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="flex items-center gap-1 text-xs font-medium text-widget-focus bg-widget-focus/10 border border-widget-focus/20 rounded-full px-2.5 py-1">
+            <Flame className="w-3.5 h-3.5" />
+            {sessionsToday} {t("pomodoroSessionsToday")}
+          </span>
+          <AjustesPomodoro />
+        </div>
       </div>
 
       {/* Mode tabs */}
@@ -178,6 +184,9 @@ export function PomodoroWidget() {
             }`}
           >
             {m === "focus" ? t("pomodoroFocus") : m === "short" ? t("pomodoroShortBreak") : t("pomodoroLongBreak")}
+            <span className="block text-[10px] font-normal opacity-70 tabular-nums">
+              {minutosCurto(m === "focus" ? tempos.foco : m === "short" ? tempos.pausa : tempos.pausaLonga)}
+            </span>
           </button>
         ))}
       </div>

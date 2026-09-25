@@ -30,6 +30,7 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import type { TemposPomodoro } from "./pomodoro";
 import { dayKey, lastNDays } from "./dates";
 import { isDoneOn, toggle as toggleHabit, type HabitProgress } from "./habits";
 

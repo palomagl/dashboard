@@ -6,7 +6,9 @@ import { dayKey } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { useCores } from "../categorias";
 import { dataDoDia } from "../formato";
-import { DURACOES, relogio, usePomodoro, type ModoPomodoro } from "../pomodoro";
+import { relogio, usePomodoro, type ModoPomodoro } from "../pomodoro";
+import { minutosCurto } from "@/lib/pomodoro";
+import { AjustesPomodoro } from "@/components/pomodoro/AjustesPomodoro";
 import { BotaoIcone, Cartao, CartaoTopo, Segmentado } from "../ui";
 
 function idioma(locale: string) {
@@ -267,14 +269,17 @@ export function FocoCard({ className }: { className?: string }) {
         titulo={t("focoDoDia")}
         subtitulo={`${t("pomodoroTitle")} · ${p.sessoesHoje} ${t("pomodoroSessionsToday")}`}
         acao={
-          <div className="flex items-center gap-1" title={t("cicloPomodoro")} aria-label={t("cicloPomodoro")}>
-            {[0, 1, 2, 3].map((i) => (
-              <span
-                key={i}
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: i < p.ciclo ? cores.serie("habitos") : cores.trilho }}
-              />
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1" title={t("cicloPomodoro")} aria-label={t("cicloPomodoro")}>
+              {Array.from({ length: p.tempos.ciclo }, (_, i) => (
+                <span
+                  key={i}
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: i < p.ciclo ? cores.serie("habitos") : cores.trilho }}
+                />
+              ))}
+            </div>
+            <AjustesPomodoro className="-my-1" />
           </div>
         }
         className="relative"
@@ -311,9 +316,9 @@ export function FocoCard({ className }: { className?: string }) {
             valor={p.modo}
             onChange={p.trocarModo}
             opcoes={[
-              { valor: "focus", rotulo: `${DURACOES.focus / 60} min` },
-              { valor: "short", rotulo: `${DURACOES.short / 60} min` },
-              { valor: "long", rotulo: `${DURACOES.long / 60} min` },
+              { valor: "focus", rotulo: minutosCurto(p.tempos.foco) },
+              { valor: "short", rotulo: minutosCurto(p.tempos.pausa) },
+              { valor: "long", rotulo: minutosCurto(p.tempos.pausaLonga) },
             ]}
           />
           <div className="flex items-center gap-3">
