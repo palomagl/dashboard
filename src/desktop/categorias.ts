@@ -120,8 +120,3 @@ export const ICONES_HABITO: Record<string, LucideIcon> = {
 
 export const OPCOES_ICONE_HABITO = ["Droplet", "Dumbbell", "BookOpen", "Moon", "Coffee", "Leaf"];
 
-// ----------------------------------------------
-// Contas (mesma lista do celular)
-// ----------------------------------------------
-
-export const CATEGORIAS_CONTA = ["Moradia", "Serviços", "Lazer", "Saúde", "Outros"];

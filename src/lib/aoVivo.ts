@@ -296,8 +296,8 @@ const telegram = (() => {
         desligarDepois = null;
       }
       if (!cancelar && auth.currentUser) {
-        cancelar = telegramApi.observar((status) => {
-          estado = status;
+        cancelar = observar((valor) => {
+          estado = valor;
           ouvintes.forEach((f) => f());
         });
       }

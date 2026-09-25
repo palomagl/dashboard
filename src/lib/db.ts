@@ -51,6 +51,11 @@ function ref(nome: string, id: string) {
   return doc(db, "users", uid(), nome, id);
 }
 
+/** O Firestore recusa campos `undefined`: some com eles antes de gravar. */
+function semIndefinidos<T extends Record<string, unknown>>(dados: T): T {
+  return Object.fromEntries(Object.entries(dados).filter(([, v]) => v !== undefined)) as T;
+}
+
 function comId<T>(snap: QueryDocumentSnapshot<DocumentData>): T {
   return { id: snap.id, ...snap.data() } as T;
 }

@@ -22,7 +22,6 @@ function Kpis() {
   const dinheiro = useDinheiro();
   const { ocultos, alternar } = useValores();
   const transacoes = useTransacoes().itens;
-  const contas = useContas().itens;
   const metas = useMetas().itens;
 
   const d = useMemo(() => {
@@ -129,6 +128,7 @@ export default function FinancasDesktop() {
       <Cabecalho icone={<IconePagina Icone={Wallet} />} titulo={t("tabFinancas")} subtitulo={t("financasSubtitulo")} />
 
       <div className="space-y-4 wide:space-y-5">
+        <LancarRapido />
         <Kpis />
         <div className="grid grid-cols-12 gap-4 wide:gap-5">
           <div className="col-span-7 grid min-w-0">

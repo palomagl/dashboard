@@ -6,6 +6,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useContas, useHabitos, useTarefas } from "@/lib/aoVivo";
 import { cn } from "@/lib/utils";
 import { useDinheiro } from "./valores";
+import { situacaoDe, vencimentoDe } from "./contas";
 
 // O sininho: contas vencidas ou vencendo nos próximos 5 dias (as que ainda
 // não foram marcadas como pagas) e o que falta de tarefas e hábitos hoje.
@@ -21,23 +22,26 @@ export function Notificacoes() {
   const tarefas = useTarefas().itens;
   const habitos = useHabitos().itens;
 
-  const alertas = useMemo(() => {
-    const hoje = new Date().getDate();
-    return contas
-      .filter((c) => !c.paid)
-      .map((c) => ({ conta: c, dia: parseInt(c.dueDate, 10) }))
-      .filter(({ dia }) => Number.isFinite(dia))
-      .map(({ conta, dia }) => ({ conta, dia, faltam: dia - hoje }))
-      .filter(({ faltam }) => faltam <= JANELA_DIAS)
-      .sort((a, b) => a.faltam - b.faltam);
-  }, [contas]);
+  const alertas = useMemo(
+    () =>
+      contas
+        .filter((c) => !c.paid)
+        .map((c) => {
+          const vencimento = vencimentoDe(c);
+          const { dias } = situacaoDe(c);
+          return { conta: c, faltam: dias, dia: `${vencimento.slice(8)}/${vencimento.slice(5, 7)}` };
+        })
+        .filter(({ faltam }) => faltam <= JANELA_DIAS)
+        .sort((a, b) => a.faltam - b.faltam),
+    [contas]
+  );
 
   const tarefasAbertas = tarefas.filter((x) => !x.completed).length;
   const habitosAbertos = habitos.filter((h) => !h.completed).length;
   const temAlgo = alertas.length > 0 || tarefasAbertas > 0 || habitosAbertos > 0;
 
-  const quando = (faltam: number, dia: number) => {
-    if (faltam < 0) return t("avisoVenceu").replace("{dia}", String(dia));
+  const quando = (faltam: number, dia: string) => {
+    if (faltam < 0) return t("avisoVenceu").replace("{dia}", dia);
     if (faltam === 0) return t("avisoVenceHoje");
     if (faltam === 1) return t("avisoVenceAmanha");
     return t("avisoVenceEm").replace("{n}", String(faltam));
@@ -86,7 +90,8 @@ export function Notificacoes() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">
-                  {conta.name} · {dinheiro(conta.amount, { centavos: true })}
+                  {conta.name}
+                  {conta.parcela ? ` ${conta.parcela}` : ""} · {dinheiro(conta.amount, { centavos: true })}
                 </span>
                 <span className="block text-xs text-muted-foreground">{quando(faltam, dia)}</span>
               </span>

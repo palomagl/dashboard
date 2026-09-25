@@ -28,6 +28,7 @@ import { useTema } from "@/hooks/useTema";
 import { useContas, useHabitos, useMetas, useNotas, useTarefas, useTransacoes } from "@/lib/aoVivo";
 import { ICONES_HABITO } from "./categorias";
 import { diaMes } from "./formato";
+import { vencimentoDe } from "./contas";
 import { useDinheiro, useValores } from "./valores";
 
 // A busca do cabeçalho: procura em tudo (páginas, tarefas, transações,
@@ -176,7 +177,8 @@ function BuscaDialog({ aberta, onMudar }: { aberta: boolean; onMudar: (v: boolea
                 <Receipt className="mr-2 text-muted-foreground" />
                 <span className="flex-1 truncate">{c.name}</span>
                 <span className="ml-3 text-xs text-muted-foreground">
-                  {t("financesDay")} {c.dueDate} · {dinheiro(c.amount, { centavos: true })}
+                  {c.parcela ? `${c.parcela} · ` : ""}
+                  {diaMes(vencimentoDe(c), locale)} · {dinheiro(c.amount, { centavos: true })}
                 </span>
               </CommandItem>
             ))}
