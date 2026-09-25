@@ -35,8 +35,6 @@ Marcar um hábito, concluir uma tarefa, buscar com `Ctrl + K`, ver os avisos de 
 - **Feito para o celular e para o computador.** No celular é um app instalável, que abre até sem internet. No notebook e no monitor é um painel completo, com menu lateral.
 - **Seus dados são só seus.** Você entra com a conta Google, e as regras de segurança do banco não deixam ninguém mais ler nada.
 
-![Início: o dia inteiro numa tela](docs/prints/inicio.png)
-
 ---
 
 ## O que tem dentro
@@ -47,21 +45,19 @@ Marcar um hábito, concluir uma tarefa, buscar com `Ctrl + K`, ver os avisos de 
 - **Hábitos diários** com sequência de dias 🔥, que zera sozinha se você pula um dia e dá para desmarcar sem perder a sequência.
 - **Sua semana num relance:** quantas tarefas e hábitos você concluiu em cada dia, com gráfico e navegação pelas semanas anteriores.
 - **O que eu fiz nesse dia?** Clique em qualquer dia da semana e veja tudo o que aconteceu: hábitos feitos, tarefas concluídas, quanto gastou e recebeu, metas que avançaram, focos no Pomodoro e notas criadas.
-- **Foco do dia:** timer Pomodoro (25/5/15, pausa longa a cada 4 focos). Ele continua contando mesmo quando você troca de página e mostra o tempo na aba do navegador.
-
-![Rotina](docs/prints/rotina.png)
+- **Foco do dia:** timer Pomodoro com os tempos que você escolher (25/5, 50/10, 1h de foco com 20 min de pausa...), e pausa longa a cada tantos focos. Ele continua contando mesmo quando você troca de página e mostra o tempo na aba do navegador.
 
 ### 💰 Finanças
 
-- **Saldo atual** e quanto sobrou no mês, com mini gráfico da evolução.
+- **Anote em um clique:** gasto, entrada ou conta a pagar, direto do topo da página.
+- **Saldo de verdade:** diga quanto você tem agora (Pix, dinheiro, o que separou para uma conta) e o saldo anda sozinho a partir daí, sem precisar lançar o histórico inteiro.
 - **Entradas e gastos do mês**, comparados com o mês passado.
 - **Gráfico de entradas x gastos** em 7 dias, 30 dias ou 3 meses.
 - **Gastos por categoria** (Alimentação, Transporte, Moradia, Lazer, Saúde, Assinaturas).
-- **Contas do mês** com vencimento: marque como paga e veja o que está vencido ou vencendo.
-- **Metas** com barra de progresso (viagem, reserva de emergência, 12 livros no ano...).
+- **Contas a pagar** com data de vencimento: a próxima a vencer em destaque, o que vence nos próximos 30 dias e quanto sai por mês. Compra parcelada (3x, 10x...), conta fixa todo mês e fatura do cartão, cada uma com a sua etiqueta.
+- **Importe sua planilha** de contas (CSV do Excel ou do Google Planilhas): o app lê data, descrição, valor e situação, e não duplica nada se você importar de novo.
+- **Metas do seu jeito:** "ler 6 livros até dezembro" anda de livro em livro, "juntar R$ 30 mil pro intercâmbio" anda em reais guardados. Cada uma com o seu prazo (próximos 12 meses ou longo prazo) e o ritmo que falta por mês.
 - **Olhinho para esconder os valores** quando tiver alguém do lado ou você estiver compartilhando a tela.
-
-![Finanças](docs/prints/financas.png)
 
 ### 🤖 Bot do Telegram
 
@@ -78,28 +74,16 @@ Vincule sua conta uma vez, direto pelo app, e registre gastos e entradas convers
 
 ### 📝 Notas
 
-Post-its coloridos para ideias rápidas, lembretes e listas, num mural que se organiza sozinho.
+Um mural de cortiça com post-its coloridos, presos com alfinete, para ideias rápidas, lembretes e listas.
 
 ### ✨ Os detalhes que fazem diferença
 
 - **Busca em tudo** com `Ctrl + K`: tarefas, transações, contas, metas, hábitos, notas e páginas.
 - **Sininho de avisos:** contas vencidas ou que vencem nos próximos dias, e o que ainda falta fazer hoje.
+- **O céu de agora:** o ícone do "Hoje" mostra sol, nuvem, chuva ou lua conforme o clima da sua cidade, com a temperatura.
 - **Tema claro e escuro.**
 - **Português e inglês.**
 - **Instalável (PWA):** vai para a tela inicial do celular, abre offline e sincroniza quando a internet volta.
-
-<table>
-  <tr>
-    <td width="68%"><img src="docs/prints/inicio-escuro.png" alt="Início no tema escuro" /></td>
-    <td width="32%"><img src="docs/prints/celular.png" alt="Minha Rotina no celular" /></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Tema escuro</sub></td>
-    <td align="center"><sub>No celular</sub></td>
-  </tr>
-</table>
-
-<sub>Telas reais do app, com dados de exemplo.</sub>
 
 ---
 
@@ -193,6 +177,9 @@ src/
 │   ├── firebase.ts    inicialização do Firebase
 │   ├── db.ts          leitura e gravação no Firestore
 │   ├── aoVivo.ts      dados ao vivo compartilhados entre os cards
+│   ├── metas.ts       metas em quantidade ou dinheiro, com prazo
+│   ├── pomodoro.ts    tempos do Pomodoro, iguais no celular e no computador
+│   ├── clima.ts       clima de agora (Open-Meteo)
 │   ├── dates.ts       "que dia é hoje", no fuso local
 │   └── habits.ts      sequência e "feito hoje"
 └── contexts/          autenticação e idioma
