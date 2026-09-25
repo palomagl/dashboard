@@ -46,6 +46,7 @@ Marcar um hábito, concluir uma tarefa, buscar com `Ctrl + K`, ver os avisos de 
 - **Tarefas do dia** separadas por área (Trabalho, Estudos, Saúde, Casa...), com filtro por área e barra de progresso.
 - **Hábitos diários** com sequência de dias 🔥, que zera sozinha se você pula um dia e dá para desmarcar sem perder a sequência.
 - **Sua semana num relance:** quantas tarefas e hábitos você concluiu em cada dia, com gráfico e navegação pelas semanas anteriores.
+- **O que eu fiz nesse dia?** Clique em qualquer dia da semana e veja tudo o que aconteceu: hábitos feitos, tarefas concluídas, quanto gastou e recebeu, metas que avançaram, focos no Pomodoro e notas criadas.
 - **Foco do dia:** timer Pomodoro (25/5/15, pausa longa a cada 4 focos). Ele continua contando mesmo quando você troca de página e mostra o tempo na aba do navegador.
 
 ![Rotina](docs/prints/rotina.png)

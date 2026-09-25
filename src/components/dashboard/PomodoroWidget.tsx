@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Play, Pause, RotateCcw, SkipForward, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/contexts/LocaleContext";
+import { diasApi } from "@/lib/db";
 
 type Mode = "focus" | "short" | "long";
 
@@ -95,6 +96,8 @@ export function PomodoroWidget() {
         localStorage.setItem(CYCLE_KEY, String(nextCycle));
       } catch {}
       toast.success(t("pomodoroDone"));
+      // Conta no histórico do dia (tela "o que eu fiz nesse dia", no computador).
+      diasApi.registrarFoco().catch(() => {});
       switchMode(nextCycle === 0 ? "long" : "short", false);
     } else {
       toast.success(t("pomodoroBreakDone"));

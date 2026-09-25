@@ -2,11 +2,11 @@ import type { FormEvent } from "react";
 import { Check, LogOut, Send, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useTema } from "@/hooks/useTema";
 import type { TelegramStatus } from "@/lib/db";
-import { cn } from "@/lib/utils";
 import { Cabecalho, IconePagina } from "../Cabecalho";
 import { DesktopShell } from "../DesktopShell";
 import { Avatar } from "../Sidebar";
@@ -198,21 +198,7 @@ function Preferencias() {
             {t("valoresOcultar")}
             <span className="block text-xs text-muted-foreground">{t("valoresOcultarTexto")}</span>
           </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={ocultos}
-            aria-label={t("valoresOcultar")}
-            onClick={alternarValores}
-            className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", ocultos ? "bg-primary" : "bg-input")}
-          >
-            <span
-              className={cn(
-                "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-                ocultos ? "translate-x-[22px]" : "translate-x-0.5"
-              )}
-            />
-          </button>
+          <Switch checked={ocultos} onCheckedChange={alternarValores} aria-label={t("valoresOcultar")} />
         </div>
       </div>
       <Button variant="ghost" className="mt-3 h-11 w-full rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={logout}>

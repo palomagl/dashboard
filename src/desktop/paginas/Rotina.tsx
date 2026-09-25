@@ -6,6 +6,7 @@ import { dayKey } from "@/lib/dates";
 import { Cabecalho, IconePagina } from "../Cabecalho";
 import { HabitosCard, TarefasCard } from "../cards/Rotina";
 import { FocoCard, FraseRotina, RotinaSemanaCard, SemanaCard } from "../cards/RotinaCards";
+import { DiaDetalhe } from "../cards/DiaDetalhe";
 
 /** Os 7 dias (segunda a domingo) da semana de hoje, voltando `atras` semanas. */
 function semanaDe(atras: number): string[] {
@@ -24,6 +25,7 @@ export default function RotinaDesktop() {
   const [atras, setAtras] = useState(0);
   const semana = useMemo(() => semanaDe(atras), [atras]);
   const { dias } = useDias(semana[0], semana[6]);
+  const [diaAberto, setDiaAberto] = useState<string | null>(null);
 
   return (
     <>
@@ -37,6 +39,7 @@ export default function RotinaDesktop() {
           onAnterior={() => setAtras((a) => a + 1)}
           onProxima={() => setAtras((a) => Math.max(0, a - 1))}
           onHoje={() => setAtras(0)}
+          onSelecionar={setDiaAberto}
         />
         <div className="grid grid-cols-12 items-stretch gap-4 wide:gap-5">
           <TarefasCard comFiltros className="col-span-7 min-w-0" />
@@ -44,12 +47,14 @@ export default function RotinaDesktop() {
         </div>
         <div className="grid grid-cols-12 items-stretch gap-4 wide:gap-5">
           <div className="col-span-7 grid min-w-0">
-            <RotinaSemanaCard semana={semana} dias={dias} />
+            <RotinaSemanaCard semana={semana} dias={dias} onSelecionar={setDiaAberto} />
           </div>
           <FocoCard className="col-span-5 min-w-0" />
         </div>
         <FraseRotina />
       </div>
+
+      <DiaDetalhe dia={diaAberto} onMudarDia={setDiaAberto} />
     </>
   );
 }

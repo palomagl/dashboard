@@ -41,7 +41,7 @@ function fraseDoDia(locale: "pt" | "en") {
  * Card da coluna direita da Início: quanto do dia já foi feito (tarefas +
  * hábitos) e a frase do dia ("Grandes conquistas começam...").
  */
-export function FraseCard({ className }: { className?: string }) {
+export function FraseCard({ className, onAbrirDia }: { className?: string; onAbrirDia?: () => void }) {
   const { t, locale } = useLocale();
   const cores = useCores();
   const tarefas = useTarefas().itens;
@@ -70,7 +70,14 @@ export function FraseCard({ className }: { className?: string }) {
       />
       {total > 0 && (
         <>
-          <div className="relative h-[108px] w-[108px]" role="img" aria-label={t("hojeFeitos").replace("{feitos}", String(feitos)).replace("{total}", String(total))}>
+          <button
+            type="button"
+            onClick={onAbrirDia}
+            disabled={!onAbrirDia}
+            title={onAbrirDia ? t("verMeuDia") : undefined}
+            className="relative h-[108px] w-[108px] rounded-full transition-transform enabled:hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`${t("hojeFeitos").replace("{feitos}", String(feitos)).replace("{total}", String(total))}. ${t("verMeuDia")}`}
+          >
             <svg viewBox="0 0 108 108" className="h-full w-full -rotate-90">
               <circle cx="54" cy="54" r={r} fill="none" stroke={cores.trilho} strokeWidth="8" />
               <circle
@@ -90,7 +97,7 @@ export function FraseCard({ className }: { className?: string }) {
               <span className="text-xl font-bold tabular-nums">{Math.round(pct * 100)}%</span>
               <span className="text-[11px] text-muted-foreground">{t("hojeProgresso")}</span>
             </div>
-          </div>
+          </button>
           <p className="relative mt-2 text-xs text-muted-foreground">
             {t("hojeFeitos").replace("{feitos}", String(feitos)).replace("{total}", String(total))}
           </p>

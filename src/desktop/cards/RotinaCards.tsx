@@ -28,6 +28,7 @@ export function SemanaCard({
   onAnterior,
   onProxima,
   onHoje,
+  onSelecionar,
   ehSemanaAtual,
 }: {
   semana: string[];
@@ -35,6 +36,8 @@ export function SemanaCard({
   onAnterior: () => void;
   onProxima: () => void;
   onHoje: () => void;
+  /** Clicar num dia abre "o que eu fiz nesse dia". */
+  onSelecionar: (dia: string) => void;
   ehSemanaAtual: boolean;
 }) {
   const { t, locale } = useLocale();
@@ -53,15 +56,19 @@ export function SemanaCard({
           const dia = dias.get(d);
           const total = (dia?.tarefas ?? 0) + (dia?.habitos ?? 0);
           return (
-            <li
-              key={d}
-              aria-current={ehHoje ? "date" : undefined}
-              className={cn(
-                "flex flex-col items-center rounded-2xl py-2.5 transition-colors",
-                ehHoje ? "bg-primary/10 text-primary ring-1 ring-primary/25" : "hover:bg-secondary/70",
-                futuro && "opacity-45"
-              )}
-            >
+            <li key={d}>
+              <button
+                type="button"
+                disabled={futuro}
+                onClick={() => onSelecionar(d)}
+                aria-current={ehHoje ? "date" : undefined}
+                title={futuro ? undefined : t("verODia")}
+                className={cn(
+                  "flex w-full flex-col items-center rounded-2xl py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  ehHoje ? "bg-primary/10 text-primary ring-1 ring-primary/25 hover:bg-primary/15" : "hover:bg-secondary",
+                  futuro && "cursor-default opacity-45 hover:bg-transparent"
+                )}
+              >
               <span className={cn("text-xs font-medium", ehHoje ? "text-primary" : "text-muted-foreground")}>
                 {diaSemanaCurto(d, locale)}
               </span>
@@ -75,6 +82,7 @@ export function SemanaCard({
               >
                 {total > 0 ? `✓ ${total}` : "·"}
               </span>
+              </button>
             </li>
           );
         })}
@@ -104,7 +112,15 @@ export function SemanaCard({
 // Rotina da semana (barras)
 // ==============================================
 
-export function RotinaSemanaCard({ semana, dias }: { semana: string[]; dias: Map<string, Dia> }) {
+export function RotinaSemanaCard({
+  semana,
+  dias,
+  onSelecionar,
+}: {
+  semana: string[];
+  dias: Map<string, Dia>;
+  onSelecionar: (dia: string) => void;
+}) {
   const { t, locale } = useLocale();
   const cores = useCores();
   const dados = semana.map((d) => ({
@@ -143,7 +159,16 @@ export function RotinaSemanaCard({ semana, dias }: { semana: string[]; dias: Map
       ) : (
         <div className="-mx-2 h-[230px] flex-1">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dados} barGap={3} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <BarChart
+              data={dados}
+              barGap={3}
+              margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+              className="cursor-pointer"
+              onClick={(e) => {
+                const dia = (e as { activeLabel?: string } | null)?.activeLabel;
+                if (dia && dia <= dayKey()) onSelecionar(dia);
+              }}
+            >
               <CartesianGrid vertical={false} stroke={cores.grade} />
               <XAxis
                 dataKey="dia"

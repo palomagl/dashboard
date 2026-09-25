@@ -18,6 +18,7 @@ import { DespesasPorCategoria, ResumoFinanceiro } from "../cards/Resumo";
 import { FraseCard, TelegramFaixa } from "../cards/Extras";
 import { HabitosCard, TarefasCard } from "../cards/Rotina";
 import { UltimasTransacoes } from "../cards/Transacoes";
+import { DiaDetalhe } from "../cards/DiaDetalhe";
 
 function Saudacao() {
   const hora = new Date().getHours();
@@ -122,6 +123,7 @@ export default function InicioDesktop() {
   const { user } = useAuth();
   const { t, locale } = useLocale();
   const [periodo, setPeriodo] = useState<Periodo>("30d");
+  const [diaAberto, setDiaAberto] = useState<string | null>(null);
   // Com 1360px ou mais sobra largura para a coluna de transações à direita,
   // como na referência; abaixo disso ela desce para o meio da página (senão
   // os cards de número ficam estreitos demais e cortam o texto).
@@ -153,7 +155,7 @@ export default function InicioDesktop() {
           {!comColuna && (
             <div className="grid grid-cols-2 gap-4">
               <UltimasTransacoes />
-              <FraseCard />
+              <FraseCard onAbrirDia={() => setDiaAberto(dayKey())} />
             </div>
           )}
           <TelegramFaixa />
@@ -162,10 +164,12 @@ export default function InicioDesktop() {
         {comColuna && (
           <aside className="flex min-w-0 flex-col gap-4 wide:gap-5">
             <UltimasTransacoes />
-            <FraseCard className="flex-1" />
+            <FraseCard className="flex-1" onAbrirDia={() => setDiaAberto(dayKey())} />
           </aside>
         )}
       </div>
+
+      <DiaDetalhe dia={diaAberto} onMudarDia={setDiaAberto} />
     </>
   );
 }

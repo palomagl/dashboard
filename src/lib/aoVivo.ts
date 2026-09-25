@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   collection,
+  doc,
   documentId,
   endAt,
   onSnapshot,
@@ -327,6 +328,23 @@ export function useTelegram(): EstadoTelegram {
 export interface Dia {
   tarefas: number;
   habitos: number;
+  /** Sessões de foco do Pomodoro concluídas. */
+  focos: number;
+  /** O que foi feito — anotado a partir de quando o histórico passou a existir. */
+  tarefasFeitas: Record<string, { titulo: string; categoria: string }>;
+  habitosFeitos: Record<string, { nome: string; icone: string }>;
+  metas: Record<string, { titulo: string; de: number; para: number }>;
+}
+
+function paraDia(dados: DocumentData | undefined): Dia {
+  return {
+    tarefas: dados?.tasksCompleted ?? 0,
+    habitos: dados?.habitsCompleted ?? 0,
+    focos: dados?.focos ?? 0,
+    tarefasFeitas: dados?.tarefas ?? {},
+    habitosFeitos: dados?.habitos ?? {},
+    metas: dados?.metas ?? {},
+  };
 }
 
 /**
@@ -344,10 +362,7 @@ export function useDias(inicio: string, fim: string): { dias: Map<string, Dia>; 
       query(collection(db, "users", uid, "days"), orderBy(documentId()), startAt(inicio), endAt(fim)),
       (snap) => {
         const dias = new Map<string, Dia>();
-        snap.docs.forEach((d) => {
-          const dados = d.data();
-          dias.set(d.id, { tarefas: dados.tasksCompleted ?? 0, habitos: dados.habitsCompleted ?? 0 });
-        });
+        snap.docs.forEach((d) => dias.set(d.id, paraDia(d.data())));
         setEstado({ chave, dias });
       },
       (erro) => {
@@ -359,4 +374,25 @@ export function useDias(inicio: string, fim: string): { dias: Map<string, Dia>; 
 
   const atual = estado?.chave === chave ? estado : null;
   return { dias: atual?.dias ?? new Map(), pronto: atual !== null };
+}
+
+/** Um dia só (days/{YYYY-MM-DD}), ao vivo — para a tela "o que eu fiz nesse dia". */
+export function useDia(dia: string | null): { dia: Dia | null; pronto: boolean } {
+  const [estado, setEstado] = useState<{ chave: string; dia: Dia } | null>(null);
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || !dia) return;
+    return onSnapshot(
+      doc(db, "users", uid, "days", dia),
+      (snap) => setEstado({ chave: dia, dia: paraDia(snap.data()) }),
+      (erro) => {
+        if (auth.currentUser) console.error("Falha ao acompanhar o dia:", erro);
+        setEstado({ chave: dia, dia: paraDia(undefined) });
+      }
+    );
+  }, [dia]);
+
+  const atual = estado && estado.chave === dia ? estado : null;
+  return { dia: atual?.dia ?? null, pronto: atual !== null };
 }

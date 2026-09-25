@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLocale } from "@/contexts/LocaleContext";
+import { diasApi } from "@/lib/db";
 
 // ==============================================
 // Pomodoro do computador
@@ -124,6 +125,8 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         /* sem storage */
       }
       toast.success(t("pomodoroDone"));
+      // Fica no histórico do dia ("o que eu fiz"). Se falhar, o timer segue.
+      diasApi.registrarFoco().catch(() => {});
       trocarModo(proximoCiclo === 0 ? "long" : "short");
     } else {
       toast.success(t("pomodoroBreakDone"));

@@ -23,6 +23,7 @@ import {
   updateDoc,
   addDoc,
   increment,
+  deleteField,
   onSnapshot,
   Timestamp,
   type DocumentData,
@@ -72,9 +73,29 @@ async function criar<T extends { id: string }>(nome: string, dados: Record<strin
  * propósito: se você conclui 5 tarefas na segunda e apaga 3 na quarta, a
  * segunda continua tendo sido um dia de 5.
  */
-async function contarNoDia(campo: "tasksCompleted" | "habitsCompleted", delta: number) {
+async function contarNoDia(campo: "tasksCompleted" | "habitsCompleted", delta: number, dia: string = dayKey()) {
   if (delta === 0) return;
-  await setDoc(ref("days", dayKey()), { [campo]: increment(delta) }, { merge: true });
+  await setDoc(ref("days", dia), { [campo]: increment(delta) }, { merge: true });
+}
+
+/**
+ * Anota no dia O QUE foi feito, além de quanto: o nome da tarefa concluída, o
+ * hábito marcado, o progresso da meta. É o que a tela "o que eu fiz nesse
+ * dia" mostra. O nome vai junto de propósito: se a tarefa for apagada depois,
+ * o dia continua dizendo o que foi feito. `null` tira a anotação (desfazer).
+ */
+async function anotarNoDia(
+  dia: string,
+  campo: "tarefas" | "habitos" | "metas",
+  id: string,
+  valor: unknown | null
+) {
+  if (valor === null) {
+    // O dia pode nem existir ainda (nada a desfazer): isso não é erro.
+    await updateDoc(ref("days", dia), { [`${campo}.${id}`]: deleteField() }).catch(() => {});
+    return;
+  }
+  await setDoc(ref("days", dia), { [campo]: { [id]: valor } }, { merge: true });
 }
 
 // ==============================================
@@ -180,6 +201,8 @@ export interface Task {
   title: string;
   completed: boolean;
   category: string;
+  /** "YYYY-MM-DD" do dia em que foi concluída. Ausente nas antigas e nas abertas. */
+  completedOn?: string;
 }
 
 export const tasksApi = {
@@ -190,14 +213,32 @@ export const tasksApi = {
   async update(id: string, dados: Partial<Task>): Promise<Task> {
     // Concluir ou reabrir uma tarefa mexe no contador do dia, então
     // precisamos saber como ela estava antes.
+    const extra: Record<string, unknown> = {};
     if (dados.completed !== undefined) {
       const atual = await getDoc(ref("tasks", id));
-      const antes = atual.data()?.completed === true;
+      const guardada = atual.data();
+      const antes = guardada?.completed === true;
       if (antes !== dados.completed) {
-        await contarNoDia("tasksCompleted", dados.completed ? 1 : -1);
+        if (dados.completed) {
+          const hoje = dayKey();
+          await contarNoDia("tasksCompleted", 1, hoje);
+          await anotarNoDia(hoje, "tarefas", id, {
+            titulo: dados.title ?? guardada?.title ?? "",
+            categoria: dados.category ?? guardada?.category ?? "Geral",
+          });
+          extra.completedOn = hoje;
+        } else {
+          // Reabrir desconta do dia em que ela foi concluída — não de hoje.
+          // Tarefas concluídas antes de existir o completedOn caem em hoje,
+          // como sempre foi.
+          const dia: string = guardada?.completedOn ?? dayKey();
+          await contarNoDia("tasksCompleted", -1, dia);
+          await anotarNoDia(dia, "tarefas", id, null);
+          extra.completedOn = deleteField();
+        }
       }
     }
-    await updateDoc(ref("tasks", id), dados);
+    await updateDoc(ref("tasks", id), { ...dados, ...extra });
     const depois = await getDoc(ref("tasks", id));
     return { id, ...depois.data() } as Task;
   },
@@ -273,6 +314,7 @@ export const habitsApi = {
       undo: novo.undo ?? null,
     });
     await contarNoDia("habitsCompleted", estavaFeito ? -1 : 1);
+    await anotarNoDia(hoje, "habitos", id, estavaFeito ? null : { nome: atual.name, icone: atual.icon });
 
     return habitParaWidget(id, { ...atual, ...novo }, hoje);
   },
@@ -298,10 +340,34 @@ export const goalsApi = {
   list: () => listar<Goal>("goals"),
   create: (dados: Omit<Goal, "id">) => criar<Goal>("goals", { ...dados }),
   async update(id: string, dados: Partial<Goal>) {
+    // Mudou o progresso: anota no dia "de quanto para quanto" — o "de" é o do
+    // primeiro ajuste do dia, para o dia mostrar o avanço total.
+    if (dados.progress !== undefined) {
+      const hoje = dayKey();
+      const [meta, dia] = await Promise.all([getDoc(ref("goals", id)), getDoc(ref("days", hoje))]);
+      const antes = meta.data();
+      const jaAnotado = dia.data()?.metas?.[id];
+      await anotarNoDia(hoje, "metas", id, {
+        titulo: dados.title ?? antes?.title ?? "",
+        de: jaAnotado?.de ?? antes?.progress ?? 0,
+        para: dados.progress,
+      });
+    }
     await updateDoc(ref("goals", id), dados);
   },
   async delete(id: string) {
     await deleteDoc(ref("goals", id));
+  },
+};
+
+// ==============================================
+// HISTÓRICO DO DIA
+// ==============================================
+
+export const diasApi = {
+  /** Uma sessão de foco do Pomodoro terminou: conta no dia de hoje. */
+  async registrarFoco() {
+    await setDoc(ref("days", dayKey()), { focos: increment(1) }, { merge: true });
   },
 };
 
