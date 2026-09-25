@@ -1,15 +1,18 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownToLine, ArrowRight, ArrowUpToLine, Moon, Sun, Target, Wallet } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, ArrowUpToLine, Target } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useMedia } from "@/hooks/useTelaGrande";
-import { useContas, useMetas, useTransacoes } from "@/lib/aoVivo";
+import { useClima } from "@/hooks/useClima";
+import type { Clima } from "@/lib/clima";
+import { useResumoClima, visualDoCeu } from "@/components/Clima";
+import { useMetas, useTransacoes } from "@/lib/aoVivo";
 import { dayKey, lastNDays } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { Cabecalho } from "../Cabecalho";
 import { useCores } from "../categorias";
-import { saldoAtual, saldoPorDia, somaPorDia, totaisDoMes, type Periodo } from "../calculos";
+import { somaPorDia, type Periodo } from "../calculos";
 import { dataPorExtenso, primeiroNome } from "../formato";
 import { Kpi } from "../graficos";
 import { Sparkline } from "../ui";
@@ -19,19 +22,24 @@ import { FraseCard, TelegramFaixa } from "../cards/Extras";
 import { HabitosCard, TarefasCard } from "../cards/Rotina";
 import { UltimasTransacoes } from "../cards/Transacoes";
 import { DiaDetalhe } from "../cards/DiaDetalhe";
+import { SaldoKpi } from "../cards/Saldo";
 
-function Saudacao() {
-  const hora = new Date().getHours();
-  const noite = hora >= 18 || hora < 5;
+/** O círculo do "Hoje": o céu de agora em Sapiranga (sol, nuvem, chuva, lua...) e a temperatura. */
+function Saudacao({ clima, resumo }: { clima: Clima | null; resumo: string | null }) {
+  const { Icone, classe, aura } = visualDoCeu(clima);
   return (
     <span
-      className={cn(
-        "grid h-14 w-14 shrink-0 place-items-center rounded-full",
-        noite ? "bg-indigo-500/10 text-indigo-500" : "bg-amber-400/15 text-amber-500"
-      )}
-      style={{ boxShadow: noite ? "0 0 0 6px hsl(239 84% 67% / 0.05)" : "0 0 0 6px hsl(43 96% 56% / 0.07)" }}
+      className={cn("relative grid h-14 w-14 shrink-0 place-items-center rounded-full", classe)}
+      style={{ boxShadow: `0 0 0 6px ${aura}` }}
+      title={resumo ?? undefined}
     >
-      {noite ? <Moon className="h-7 w-7" strokeWidth={1.75} /> : <Sun className="h-8 w-8" strokeWidth={1.75} />}
+      <Icone className="h-7 w-7" strokeWidth={1.75} />
+      {clima && (
+        <span className="absolute -bottom-1.5 -right-2 rounded-full border border-border/80 bg-card px-1.5 py-px text-[11px] font-bold tabular-nums text-foreground shadow-sm">
+          {clima.temperatura}°
+        </span>
+      )}
+      {resumo && <span className="sr-only">{resumo}</span>}
     </span>
   );
 }
@@ -115,13 +123,15 @@ export default function InicioDesktop() {
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? t("greetingMorning") : hora < 18 ? t("greetingAfternoon") : t("greetingEvening");
   const nome = primeiroNome(user?.name) || t("user");
+  const clima = useClima();
+  const resumoClima = useResumoClima(clima);
 
   return (
     <>
       <Cabecalho
-        icone={<Saudacao />}
+        icone={<Saudacao clima={clima} resumo={resumoClima} />}
         titulo={`${saudacao}, ${nome}`}
-        subtitulo={`${dataPorExtenso(new Date(), locale)} · ${t("saudacaoPergunta")}`}
+        subtitulo={[dataPorExtenso(new Date(), locale), resumoClima, t("saudacaoPergunta")].filter(Boolean).join(" · ")}
       />
 
       <div className={cn("grid gap-4 wide:gap-5", comColuna && "grid-cols-[minmax(0,1fr)_320px] wide:grid-cols-[minmax(0,1fr)_340px]")}>

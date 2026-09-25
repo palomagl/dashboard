@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/Logo";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useClima } from "@/hooks/useClima";
+import { useResumoClima, visualDoCeu } from "@/components/Clima";
 import type { Locale } from "@/lib/translations";
 import {
   DropdownMenu,
@@ -23,6 +25,9 @@ export function DashboardHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { locale, setLocale, t } = useLocale();
+  const clima = useClima();
+  const resumoClima = useResumoClima(clima);
+  const ceu = visualDoCeu(clima);
 
   const toggleTheme = () => {
     const next = !document.documentElement.classList.contains("dark");
@@ -173,6 +178,15 @@ export function DashboardHeader() {
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Calendar className="w-4 h-4 flex-shrink-0" />
         <span className="capitalize truncate">{formatDate(currentDate)}</span>
+        {clima && (
+          <span className="ml-auto flex shrink-0 items-center gap-1.5" title={resumoClima ?? undefined}>
+            <span className={`grid h-7 w-7 place-items-center rounded-full ${ceu.classe}`}>
+              <ceu.Icone className="h-4 w-4" />
+            </span>
+            <span className="font-semibold text-foreground tabular-nums">{clima.temperatura}°</span>
+            <span className="sr-only">{resumoClima}</span>
+          </span>
+        )}
       </div>
     </header>
   );
