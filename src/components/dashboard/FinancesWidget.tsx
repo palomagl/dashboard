@@ -3,7 +3,10 @@ import { Plus, Wallet, TrendingUp, TrendingDown, CreditCard, Receipt, Trash2, Pe
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { billsApi, transactionsApi, Bill, Transaction, CATEGORIAS_TRANSACAO, CategoriaTransacao } from "@/lib/db";
+import { billsApi, carteiraApi, transactionsApi, Bill, Carteira, Transaction, CATEGORIAS_TRANSACAO, CategoriaTransacao } from "@/lib/db";
+import { paraData } from "@/lib/aoVivo";
+import { saldoAtual } from "@/desktop/calculos";
+import { vencimentoDe } from "@/desktop/contas";
 import { dayKey } from "@/lib/dates";
 import { executar, carregar } from "@/lib/acoes";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -34,10 +37,12 @@ export function FinancesWidget() {
   const [editingBill, setEditingBill] = useState({ name: "", amount: "", dueDate: "", category: "" });
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState({ description: "", amount: "", type: "expense" as "income" | "expense", category: "Outros" as CategoriaTransacao });
+  const [carteira, setCarteira] = useState<Carteira | null>(null);
 
   useEffect(() => {
     carregar(() => billsApi.list(), "contas").then((lista) => lista && setBills(lista));
     carregar(() => transactionsApi.list(), "transações").then((lista) => lista && setTransactions(lista));
+    carregar(() => carteiraApi.ler(), "saldo").then((c) => setCarteira(c ?? null));
   }, []);
 
   const toggleBillPaid = async (id: string) => {
@@ -48,7 +53,7 @@ export function FinancesWidget() {
       { erro: t("erroAoSalvar") }
     );
     if (salvo === null) return;
-    setBills(bills.map(b => b.id === id ? { ...b, paid: !b.paid } : b));
+    setBills(bills.map(b => b.id === id ? { ...b, paid: !b.paid, pagaEm: !b.paid ? new Date().toISOString() : undefined } : b));
   };
 
   const deleteBill = async (id: string) => {
@@ -139,13 +144,22 @@ export function FinancesWidget() {
 
   const cancelEditTransaction = () => { setEditingTransactionId(null); };
 
-  const totalBills = bills.reduce((sum, b) => sum + b.amount, 0);
   const paidBills = bills.filter(b => b.paid).reduce((sum, b) => sum + b.amount, 0);
-  const pendingBills = bills.filter(b => !b.paid).reduce((sum, b) => sum + b.amount, 0);
+  // Só o que vence até o fim deste mês (e o que já venceu): com parcelas e
+  // contas fixas importadas, "tudo que falta pagar" somaria o ano inteiro.
+  const fimDoMes = `${dayKey().slice(0, 7)}-31`;
+  const pendingBills = bills.filter(b => !b.paid && vencimentoDe(b) <= fimDoMes).reduce((sum, b) => sum + b.amount, 0);
   const totalIncome = transactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
   const expensesFromTransactions = transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
   const totalExpenses = expensesFromTransactions + paidBills;
-  const balance = totalIncome - totalExpenses;
+  // Com o saldo informado no computador ("Ajustar saldo"), o celular mostra o mesmo valor.
+  const balance = carteira
+    ? saldoAtual(transactions.map((tr) => ({ ...tr, criadaEm: paraData((tr as { createdAt?: unknown }).createdAt) })), bills, carteira)
+    : totalIncome - totalExpenses;
+  // A pagar primeiro, pela data de vencimento; as pagas por último.
+  const billsOrdenadas = [...bills].sort((a, b) => Number(a.paid) - Number(b.paid) || vencimentoDe(a).localeCompare(vencimentoDe(b)));
+  const quandoVence = (bill: Bill) =>
+    bill.vencimento ? `${bill.vencimento.slice(8)}/${bill.vencimento.slice(5, 7)}` : `${t("financesDay")} ${bill.dueDate}`;
 
   return (
     <div className="glass-card glass-card-hover rounded-xl p-5 animate-fade-in" style={{ animationDelay: "180ms" }}>
@@ -193,7 +207,7 @@ export function FinancesWidget() {
       {activeTab === "bills" && (
         <>
           <div className="flex items-center justify-between mb-3 p-2 bg-rose-500/10 rounded-lg">
-            <span className="text-xs text-rose-500">{t("financesPending")}:</span>
+            <span className="text-xs text-rose-500">{t("financesPending")} {t("noMes")}:</span>
             <span className="text-sm font-semibold text-rose-500">R$ {pendingBills.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
           </div>
 
@@ -226,7 +240,7 @@ export function FinancesWidget() {
           )}
 
           <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-            {bills.map((bill) => (
+            {billsOrdenadas.map((bill) => (
               <div key={bill.id} className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 group ${bill.paid ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-secondary/50 border border-transparent hover:border-widget-finance/30'}`}>
                 {editingBillId === bill.id ? (
                   <div className="flex-1 space-y-2">
@@ -256,8 +270,8 @@ export function FinancesWidget() {
                       {bill.paid && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${bill.paid ? 'line-through text-muted-foreground' : ''}`}>{bill.name}</p>
-                      <p className="text-xs text-muted-foreground">{t("financesDay")} {bill.dueDate} • {bill.category}</p>
+                      <p className={`text-sm font-medium truncate ${bill.paid ? 'line-through text-muted-foreground' : ''}`}>{bill.name}{bill.parcela ? ` ${bill.parcela}` : ""}</p>
+                      <p className="text-xs text-muted-foreground">{quandoVence(bill)} • {bill.category}</p>
                     </div>
                     <span className={`text-sm font-semibold ${bill.paid ? 'text-muted-foreground' : ''}`}>R$ {bill.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                     <button type="button" onClick={() => startEditingBill(bill)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1" aria-label={t("financesEditBill")}><Pencil className="w-4 h-4 text-muted-foreground hover:text-primary" /></button>

@@ -144,6 +144,63 @@ export const userApi = {
 };
 
 // ==============================================
+// SALDO (carteira)
+// ==============================================
+// Ninguém lança o histórico inteiro de transações. Então a pessoa diz quanto
+// tem agora em cada lugar (Pix, dinheiro, guardado para uma conta...), e a
+// partir desse momento o saldo anda sozinho: + entradas e − gastos lançados
+// depois, − contas marcadas como pagas depois. Mora no documento do perfil.
+
+export interface Carteira {
+  saldos: { nome: string; valor: number }[];
+  /** Quando o saldo foi informado (ISO). O que acontece depois disso muda o saldo. */
+  definidoEm: string;
+}
+
+export const carteiraApi = {
+  async ler(): Promise<Carteira | null> {
+    const snap = await getDoc(doc(db, "users", uid()));
+    return (snap.data()?.carteira as Carteira | undefined) ?? null;
+  },
+
+  observar(cb: (carteira: Carteira | null) => void): () => void {
+    return onSnapshot(
+      doc(db, "users", uid()),
+      (snap) => cb((snap.data()?.carteira as Carteira | undefined) ?? null),
+      (erro) => {
+        // Sem ler o perfil, o saldo volta à conta automática em vez de ficar carregando pra sempre.
+        if (auth.currentUser) console.error("Falha ao acompanhar o saldo:", erro);
+        cb(null);
+      }
+    );
+  },
+
+  async salvar(saldos: Carteira["saldos"]) {
+    const carteira: Carteira = { saldos, definidoEm: new Date().toISOString() };
+    await setDoc(doc(db, "users", uid()), { carteira }, { merge: true });
+  },
+
+  /** Volta ao cálculo antigo: tudo que entrou menos tudo que saiu. */
+  async remover() {
+    await updateDoc(doc(db, "users", uid()), { carteira: deleteField() });
+  },
+};
+
+// ==============================================
+// POMODORO (tempos escolhidos)
+// ==============================================
+
+export const pomodoroApi = {
+  async ler(): Promise<Partial<TemposPomodoro> | null> {
+    const snap = await getDoc(doc(db, "users", uid()));
+    return (snap.data()?.pomodoro as Partial<TemposPomodoro> | undefined) ?? null;
+  },
+  async salvar(tempos: TemposPomodoro) {
+    await setDoc(doc(db, "users", uid()), { pomodoro: tempos }, { merge: true });
+  },
+};
+
+// ==============================================
 // TELEGRAM
 // ==============================================
 // O vínculo em si — telegramChats/{chatId} e a escrita de verdade em
@@ -402,20 +459,49 @@ export const notesApi = {
 // FINANÇAS - Contas
 // ==============================================
 
+export type TipoConta = "fixa" | "parcela" | "cartao" | "avulsa";
+
 export interface Bill {
   id: string;
   name: string;
   amount: number;
+  /**
+   * Dia do mês ("10"). Continua existindo porque é o que o celular mostra
+   * ("Dia 10"). Quem tem a data completa usa `vencimento`.
+   */
   dueDate: string;
   category: string;
   paid: boolean;
+  /** "YYYY-MM-DD". Contas antigas não têm: vencem todo mês no dia `dueDate`. */
+  vencimento?: string;
+  /** Conta fixa do mês, parcela de compra, fatura de cartão ou avulsa. */
+  tipo?: TipoConta;
+  /** "1/12" — qual parcela é esta, de quantas. */
+  parcela?: string;
+  /** Data e hora (ISO) em que foi marcada como paga — entra no saldo a partir do ajuste. */
+  pagaEm?: string;
 }
 
 export const billsApi = {
   list: () => listar<Bill>("bills"),
-  create: (dados: Omit<Bill, "id">) => criar<Bill>("bills", { ...dados }),
+  create: (dados: Omit<Bill, "id">) => criar<Bill>("bills", semIndefinidos({ ...dados })),
   async update(id: string, dados: Partial<Bill>) {
-    await updateDoc(ref("bills", id), dados);
+    // Marcar como paga guarda o dia do pagamento; desmarcar apaga.
+    const extra: Record<string, unknown> = {};
+    if (dados.paid === true) extra.pagaEm = new Date().toISOString();
+    if (dados.paid === false) extra.pagaEm = deleteField();
+    // O celular edita só o dia ("10"). Se a conta tem data completa, o dia
+    // novo vale para o mesmo mês — assim as duas telas continuam de acordo.
+    if (dados.dueDate !== undefined && dados.vencimento === undefined) {
+      const atual = (await getDoc(ref("bills", id))).data();
+      const dia = parseInt(dados.dueDate, 10);
+      if (typeof atual?.vencimento === "string" && Number.isFinite(dia) && dia >= 1) {
+        const [ano, mes] = atual.vencimento.split("-").map(Number);
+        const ultimo = new Date(ano, mes, 0).getDate();
+        extra.vencimento = `${ano}-${String(mes).padStart(2, "0")}-${String(Math.min(dia, ultimo)).padStart(2, "0")}`;
+      }
+    }
+    await updateDoc(ref("bills", id), { ...semIndefinidos({ ...dados }), ...extra });
   },
   async delete(id: string) {
     await deleteDoc(ref("bills", id));

@@ -204,6 +204,10 @@ const contas = criarColecao<Bill>("bills", "createdAt", "asc", (id, d) => ({
   dueDate: String(d.dueDate ?? ""),
   category: d.category ?? "Outros",
   paid: d.paid === true,
+  vencimento: typeof d.vencimento === "string" ? d.vencimento : undefined,
+  tipo: d.tipo,
+  parcela: d.parcela,
+  pagaEm: d.pagaEm,
 }));
 
 const transacoes = criarColecao<TransacaoAoVivo>("transactions", "createdAt", "desc", (id, d) => ({
@@ -277,14 +281,15 @@ export function useManterAoVivo() {
 }
 
 // ----------------------------------------------
-// Telegram (documento do perfil)
+// Documento do perfil (Telegram e saldo)
 // ----------------------------------------------
 
-/** `undefined` enquanto carrega; `null` quando não há vínculo. */
-type EstadoTelegram = TelegramStatus | null | undefined;
-
-const telegram = (() => {
-  let estado: EstadoTelegram = undefined;
+/**
+ * Uma escuta compartilhada de um pedaço do documento do perfil
+ * (users/{uid}). `undefined` enquanto carrega.
+ */
+function criarEscutaDoPerfil<T>(observar: (cb: (valor: T | null) => void) => () => void) {
+  let estado: T | null | undefined = undefined;
   let cancelar: (() => void) | null = null;
   let desligarDepois: ReturnType<typeof setTimeout> | null = null;
   const ouvintes = new Set<() => void>();
@@ -315,10 +320,26 @@ const telegram = (() => {
     },
     getSnapshot: () => estado,
   };
-})();
+}
+
+/** `undefined` enquanto carrega; `null` quando não há vínculo. */
+type EstadoTelegram = TelegramStatus | null | undefined;
+
+const telegram = criarEscutaDoPerfil<TelegramStatus>((cb) => telegramApi.observar(cb));
 
 export function useTelegram(): EstadoTelegram {
   return useSyncExternalStore(telegram.subscribe, telegram.getSnapshot, telegram.getSnapshot);
+}
+
+// ----------------------------------------------
+// Saldo informado (users/{uid}.carteira)
+// ----------------------------------------------
+
+const carteira = criarEscutaDoPerfil<Carteira>((cb) => carteiraApi.observar(cb));
+
+/** `undefined` enquanto carrega; `null` quando a pessoa ainda não informou o saldo. */
+export function useCarteira(): Carteira | null | undefined {
+  return useSyncExternalStore(carteira.subscribe, carteira.getSnapshot, carteira.getSnapshot);
 }
 
 // ----------------------------------------------

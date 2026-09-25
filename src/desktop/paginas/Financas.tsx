@@ -2,17 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { ArrowDownToLine, ArrowUpToLine, Eye, EyeOff, Target, Wallet } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useContas, useMetas, useTransacoes } from "@/lib/aoVivo";
+import { useMetas, useTransacoes } from "@/lib/aoVivo";
 import { dayKey, lastNDays } from "@/lib/dates";
-import { cn } from "@/lib/utils";
 import { Cabecalho, IconePagina } from "../Cabecalho";
 import { useCores } from "../categorias";
-import { saldoAtual, saldoPorDia, somaPorDia, totaisDoMes, variacao, type Periodo } from "../calculos";
+import { somaPorDia, totaisDoMes, variacao, type Periodo } from "../calculos";
 import { mesAnterior } from "../formato";
 import { Delta, Kpi } from "../graficos";
 import { Barra, Sparkline } from "../ui";
 import { useDinheiro, useValores } from "../valores";
-import { CategoriasCard, ContasCard, EntradasGastosCard, MetasCard } from "../cards/FinancasCards";
+import { CategoriasCard, EntradasGastosCard, MetasCard } from "../cards/FinancasCards";
+import { ContasCard } from "../cards/Contas";
+import { SaldoKpi } from "../cards/Saldo";
+import { LancarRapido } from "../cards/Lancar";
 import { TransacoesCard } from "../cards/Transacoes";
 import { TelegramFaixa } from "../cards/Extras";
 
@@ -30,9 +32,6 @@ function Kpis() {
     const anterior = totaisDoMes(transacoes, mesAnterior(mes));
     const dias = lastNDays(30);
     return {
-      saldo: saldoAtual(transacoes, contas),
-      saldoSerie: saldoPorDia(transacoes, contas, dias),
-      liquidoMes: atual.saldo,
       entradas: atual.entradas,
       gastos: atual.gastos,
       varEntradas: variacao(atual.entradas, anterior.entradas),
@@ -40,18 +39,16 @@ function Kpis() {
       serieEntradas: somaPorDia(transacoes, dias, "income"),
       serieGastos: somaPorDia(transacoes, dias, "expense"),
     };
-  }, [transacoes, contas]);
+  }, [transacoes]);
 
   const concluidas = metas.filter((m) => m.progress >= 100).length;
   const vsMes = ` ${t("vsMesPassado")}`;
 
   return (
     <div className="grid grid-cols-4 gap-4 wide:gap-5">
-      <Kpi
-        Icone={Wallet}
-        cor={cores.serie("saldo")}
+      <SaldoKpi
         rotulo={t("saldoAtual")}
-        acao={
+        acaoExtra={
           <button
             type="button"
             onClick={alternar}
@@ -62,14 +59,6 @@ function Kpis() {
             {ocultos ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
           </button>
         }
-        valor={dinheiro(d.saldo)}
-        rodape={
-          <span className={cn("font-semibold", d.liquidoMes >= 0 ? "text-positivo" : "text-negativo")}>
-            {d.liquidoMes >= 0 ? "↑" : "↓"} {dinheiro(Math.abs(d.liquidoMes))}
-            <span className="ml-1 font-normal text-muted-foreground">{t("noMes")}</span>
-          </span>
-        }
-        grafico={<Sparkline valores={d.saldoSerie} cor={cores.serie("saldo")} largura={64} altura={30} className="w-[52px] wide:w-16" />}
       />
       <Kpi
         atraso={50}

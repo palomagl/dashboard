@@ -1,5 +1,5 @@
 // Contas feitas em cima das transações — funções puras, sem Firestore.
-import type { Bill, Transaction } from "@/lib/db";
+import type { Bill, Carteira, Transaction } from "@/lib/db";
 import { dayKey, lastNDays } from "@/lib/dates";
 
 export type Periodo = "7d" | "30d" | "3m";
@@ -12,11 +12,35 @@ export function diasDoPeriodo(periodo: Periodo): string[] {
 
 const sinal = (t: Transaction) => (t.type === "income" ? t.amount : -t.amount);
 
+type ComHora = Transaction & { criadaEm?: Date | null };
+
+function depoisDoAjuste(carteira: Carteira) {
+  const marco = Date.parse(carteira.definidoEm);
+  return {
+    transacao: (t: ComHora) => !!t.criadaEm && t.criadaEm.getTime() > marco,
+    conta: (c: Bill) => c.paid && !!c.pagaEm && Date.parse(c.pagaEm) > marco,
+  };
+}
+
 /**
- * Saldo atual: tudo que entrou menos tudo que saiu, incluindo as contas já
- * marcadas como pagas — a mesma conta que a tela de Finanças sempre fez.
+ * Saldo atual.
+ *
+ * Com saldo ajustado (carteira): o que a pessoa disse que tinha, mais as
+ * entradas e menos os gastos lançados depois disso, menos as contas marcadas
+ * como pagas depois disso. O que já tinha acontecido antes já estava dentro
+ * do valor informado.
+ *
+ * Sem ajuste: tudo que entrou menos tudo que saiu, incluindo as contas
+ * pagas — a mesma conta que a tela de Finanças sempre fez.
  */
-export function saldoAtual(transacoes: Transaction[], contas: Bill[]): number {
+export function saldoAtual(transacoes: ComHora[], contas: Bill[], carteira?: Carteira | null): number {
+  if (carteira) {
+    const depois = depoisDoAjuste(carteira);
+    const base = carteira.saldos.reduce((s, x) => s + x.valor, 0);
+    const liquido = transacoes.filter(depois.transacao).reduce((s, t) => s + sinal(t), 0);
+    const pagas = contas.filter(depois.conta).reduce((s, c) => s + c.amount, 0);
+    return base + liquido - pagas;
+  }
   const liquido = transacoes.reduce((s, t) => s + sinal(t), 0);
   const pagas = contas.filter((c) => c.paid).reduce((s, c) => s + c.amount, 0);
   return liquido - pagas;
@@ -47,11 +71,22 @@ export function somaPorDia(transacoes: Transaction[], dias: string[], tipo: Tran
 }
 
 /** Saldo no fim de cada dia (para a linhazinha do card de saldo). */
-export function saldoPorDia(transacoes: Transaction[], contas: Bill[], dias: string[]): number[] {
-  const final = saldoAtual(transacoes, contas);
-  const entradas = somaPorDia(transacoes, dias, "income");
-  const gastos = somaPorDia(transacoes, dias, "expense");
-  const liquidos = dias.map((_, i) => entradas[i] - gastos[i]);
+export function saldoPorDia(transacoes: ComHora[], contas: Bill[], dias: string[], carteira?: Carteira | null): number[] {
+  const final = saldoAtual(transacoes, contas, carteira);
+  // Só o que mexe no saldo: com ajuste, o que veio depois dele.
+  const depois = carteira ? depoisDoAjuste(carteira) : null;
+  const contadas = depois ? transacoes.filter(depois.transacao) : transacoes;
+  const entradas = somaPorDia(contadas, dias, "income");
+  const gastos = somaPorDia(contadas, dias, "expense");
+  const indice = new Map(dias.map((d, i) => [d, i]));
+  const pagasNoDia = dias.map(() => 0);
+  if (depois) {
+    for (const c of contas.filter(depois.conta)) {
+      const i = indice.get(dayKey(new Date(c.pagaEm!)));
+      if (i !== undefined) pagasNoDia[i] += c.amount;
+    }
+  }
+  const liquidos = dias.map((_, i) => entradas[i] - gastos[i] - pagasNoDia[i]);
   // Anda de trás pra frente a partir do saldo de hoje.
   const serie = new Array<number>(dias.length);
   let atual = final;

@@ -479,6 +479,180 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
           </SelectContent>
         </Select>
       </Campo>
+
+      {previa && previa.length > 0 && (
+        <div className="rounded-2xl border border-primary/25 bg-primary/[0.05] px-4 py-3 text-sm" aria-live="polite">
+          <p className="font-semibold">
+            {t("previaContas")
+              .replace("{n}", String(previa.length))
+              .replace("{valor}", reais(previa[0].amount, { centavos: true }))}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {previa[0].parcela && `${previa[0].parcela} → ${previa[previa.length - 1].parcela} · `}
+            {t("previaPeriodo")
+              .replace("{de}", dataCurta(previa[0].vencimento!))
+              .replace("{ate}", dataCurta(previa[previa.length - 1].vencimento!))}
+            {" · "}
+            {t("previaTotal").replace("{valor}", reais(previa.reduce((s, c) => s + c.amount, 0), { centavos: true }))}
+          </p>
+        </div>
+      )}
+
+      {inicial && proximas.length > 0 && (
+        <label className="flex cursor-pointer items-start gap-2 rounded-2xl bg-secondary/60 p-3 text-sm">
+          <input
+            type="checkbox"
+            checked={nasProximas}
+            onChange={(e) => setNasProximas(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]"
+          />
+          <span>
+            {t("aplicarProximas").replace("{n}", String(proximas.length))}
+            <span className="block text-xs text-muted-foreground">{t("aplicarProximasDica")}</span>
+          </span>
+        </label>
+      )}
+    </Janela>
+  );
+}
+
+// ----------------------------------------------
+// Saldo informado (carteira)
+// ----------------------------------------------
+
+interface LinhaCarteira {
+  chave: number;
+  nome: string;
+  valor: string;
+}
+
+export function AjustarSaldoDialog({
+  aberto,
+  onFechar,
+  carteira,
+  saldoCalculado,
+}: {
+  aberto: boolean;
+  onFechar: () => void;
+  carteira: Carteira | null | undefined;
+  /** O saldo que a tela mostra agora, para comparar. */
+  saldoCalculado: number;
+}) {
+  const { t } = useLocale();
+  const [linhas, setLinhas] = useState<LinhaCarteira[]>([]);
+  const [salvando, setSalvando] = useState(false);
+  const proxima = useRef(0);
+  const nova = (nome: string, valor = ""): LinhaCarteira => ({ chave: proxima.current++, nome, valor });
+
+  useEffect(() => {
+    if (!aberto) return;
+    setLinhas(
+      carteira?.saldos.length
+        ? carteira.saldos.map((s) => nova(s.nome, valorParaTexto(s.valor)))
+        : [nova(t("lugarPix")), nova(t("lugarDinheiro"))]
+    );
+    // Só ao abrir: `t` muda de identidade a cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aberto, carteira]);
+
+  const preenchidas = linhas.filter((l) => l.valor.trim() !== "");
+  const valores = preenchidas.map((l) => lerValor(l.valor));
+  const total = valores.reduce((s, v) => s + (Number.isFinite(v) ? v : 0), 0);
+  const podeSalvar = preenchidas.length > 0 && valores.every(Number.isFinite);
+
+  const mudar = (chave: number, campoMudado: "nome" | "valor", texto: string) =>
+    setLinhas((atual) => atual.map((l) => (l.chave === chave ? { ...l, [campoMudado]: texto } : l)));
+
+  const salvar = async () => {
+    setSalvando(true);
+    const saldos = preenchidas.map((l, i) => ({ nome: l.nome.trim() || t("lugarPix"), valor: valores[i] }));
+    const ok = await executar(() => carteiraApi.salvar(saldos), { erro: t("erroAoSalvar"), sucesso: t("saldoSalvo") });
+    setSalvando(false);
+    if (ok !== null) onFechar();
+  };
+
+  const voltarAoAutomatico = async () => {
+    setSalvando(true);
+    const ok = await executar(() => carteiraApi.remover(), { erro: t("erroAoSalvar") });
+    setSalvando(false);
+    if (ok !== null) onFechar();
+  };
+
+  return (
+    <Janela
+      aberto={aberto}
+      onFechar={onFechar}
+      titulo={t("ajustarSaldoTitulo")}
+      descricao={t("ajustarSaldoTexto")}
+      onSalvar={salvar}
+      salvando={salvando}
+      podeSalvar={podeSalvar}
+      rodapeExtra={
+        carteira ? (
+          <button
+            type="button"
+            onClick={voltarAoAutomatico}
+            title={t("usarCalculoAutomaticoTexto")}
+            className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            {t("usarCalculoAutomatico")}
+          </button>
+        ) : undefined
+      }
+    >
+      <div className="space-y-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_148px_36px] gap-2 text-xs font-semibold text-muted-foreground">
+          <span>{t("lugarNome")}</span>
+          <span>{t("financesAmount")}</span>
+        </div>
+        {linhas.map((l) => (
+          <div key={l.chave} className="grid grid-cols-[minmax(0,1fr)_148px_36px] items-center gap-2">
+            <Input
+              aria-label={t("lugarNome")}
+              value={l.nome}
+              onChange={(e) => mudar(l.chave, "nome", e.target.value)}
+              className={campo}
+            />
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+              <Input
+                aria-label={`${t("financesAmount")} · ${l.nome}`}
+                inputMode="decimal"
+                placeholder="0,00"
+                value={l.valor}
+                onChange={(e) => mudar(l.chave, "valor", e.target.value)}
+                className={cn(campo, "pl-10 text-right tabular-nums", l.valor.trim() && !Number.isFinite(lerValor(l.valor)) && "border-destructive")}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setLinhas((atual) => atual.filter((x) => x.chave !== l.chave))}
+              disabled={linhas.length === 1}
+              aria-label={t("removerLugar").replace("{nome}", l.nome)}
+              className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => setLinhas((atual) => [...atual, nova("")])}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-primary hover:bg-primary/10"
+        >
+          <Plus className="h-4 w-4" /> {t("adicionarLugar")}
+        </button>
+      </div>
+
+      <div className="flex items-baseline justify-between gap-3 rounded-2xl bg-secondary/70 px-4 py-3">
+        <span className="text-sm font-semibold">{t("totalAgora")}</span>
+        <span className="text-xl font-bold tabular-nums">{reais(total, { centavos: true })}</span>
+      </div>
+      {carteira !== undefined && (
+        <p className="text-xs text-muted-foreground">
+          {t("saldoCalculadoAgora").replace("{valor}", reais(saldoCalculado, { centavos: true }))}
+        </p>
+      )}
     </Janela>
   );
 }

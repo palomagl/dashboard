@@ -41,20 +41,15 @@ function Kpis() {
   const cores = useCores();
   const dinheiro = useDinheiro();
   const transacoes = useTransacoes().itens;
-  const contas = useContas().itens;
   const metas = useMetas().itens;
 
   const dados = useMemo(() => {
     const hoje = dayKey();
     const semana = lastNDays(7);
-    const mes = lastNDays(30);
     const doDia = transacoes.filter((x) => x.date === hoje);
     const despesas = doDia.filter((x) => x.type === "expense");
     const entradas = doDia.filter((x) => x.type === "income");
     return {
-      saldo: saldoAtual(transacoes, contas),
-      saldoSerie: saldoPorDia(transacoes, contas, mes),
-      noMes: totaisDoMes(transacoes, hoje.slice(0, 7)).saldo,
       despesasHoje: despesas.reduce((s, x) => s + x.amount, 0),
       nDespesas: despesas.length,
       despesasSerie: somaPorDia(transacoes, semana, "expense"),
@@ -62,26 +57,14 @@ function Kpis() {
       nEntradas: entradas.length,
       entradasSerie: somaPorDia(transacoes, semana, "income"),
     };
-  }, [transacoes, contas]);
+  }, [transacoes]);
 
   const ativas = metas.filter((m) => m.progress < 100).length;
   const n = (q: number) => `${q} ${q === 1 ? t("transacao") : t("financesTransactions").toLowerCase()}`;
 
   return (
     <div className="grid grid-cols-4 gap-4 wide:gap-5">
-      <Kpi
-        Icone={Wallet}
-        cor={cores.serie("saldo")}
-        rotulo={t("saldoTotal")}
-        valor={dinheiro(dados.saldo)}
-        rodape={
-          <span className={cn("font-semibold", dados.noMes >= 0 ? "text-positivo" : "text-negativo")}>
-            {dados.noMes >= 0 ? "↑" : "↓"} {dinheiro(Math.abs(dados.noMes))}
-            <span className="ml-1 font-normal text-muted-foreground">{t("noMes")}</span>
-          </span>
-        }
-        grafico={<Sparkline valores={dados.saldoSerie} cor={cores.serie("saldo")} largura={64} altura={30} className="w-[52px] wide:w-16" />}
-      />
+      <SaldoKpi rotulo={t("saldoTotal")} />
       <Kpi
         atraso={50}
         Icone={ArrowDownToLine}

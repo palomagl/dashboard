@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Bill, Transaction } from "@/lib/db";
+import type { Bill, Carteira, Transaction } from "@/lib/db";
 import {
   acumuladoNoPeriodo,
   gastosPorCategoria,
@@ -36,6 +36,48 @@ describe("saldoAtual", () => {
 
   it("conta não paga não mexe no saldo", () => {
     expect(saldoAtual(TX, [conta({ amount: 999 })])).toBe(1200);
+  });
+});
+
+describe("saldoAtual com saldo informado (carteira)", () => {
+  // O caso de verdade: 2970 no Pix + 312 em dinheiro + 120 separados pra internet.
+  const carteira: Carteira = {
+    saldos: [
+      { nome: "Pix", valor: 2970 },
+      { nome: "Dinheiro", valor: 312 },
+      { nome: "Internet", valor: 120 },
+    ],
+    definidoEm: "2026-09-25T15:00:00.000Z",
+  };
+  const antes = new Date("2026-09-25T12:00:00.000Z");
+  const depois = new Date("2026-09-25T18:00:00.000Z");
+
+  it("parte do que foi informado e ignora o histórico antigo", () => {
+    const velhas = TX.map((t) => ({ ...t, criadaEm: antes }));
+    const pagaAntes = conta({ amount: 500, paid: true, pagaEm: "2026-09-20T10:00:00.000Z" });
+    const importadaPaga = conta({ amount: 60, paid: true }); // veio da planilha como "Paga", sem pagaEm
+    expect(saldoAtual(velhas, [pagaAntes, importadaPaga], carteira)).toBe(3402);
+  });
+
+  it("pagar a internet depois do ajuste tira 120", () => {
+    const internet = conta({ name: "Internet", amount: 120, paid: true, pagaEm: "2026-09-25T19:00:00.000Z" });
+    expect(saldoAtual([], [internet], carteira)).toBe(3282);
+  });
+
+  it("transações lançadas depois do ajuste entram e saem", () => {
+    const novas = [
+      { ...tx({ amount: 50, type: "income" }), criadaEm: depois },
+      { ...tx({ amount: 30 }), criadaEm: depois },
+      { ...tx({ amount: 999 }), criadaEm: null }, // sem hora: não dá pra saber, fica de fora
+    ];
+    expect(saldoAtual(novas, [], carteira)).toBe(3422);
+  });
+
+  it("a linha do saldo termina no saldo de hoje e desce no dia em que a conta foi paga", () => {
+    const dias = ["2026-09-24", "2026-09-25", "2026-09-26"];
+    const internet = conta({ amount: 120, paid: true, pagaEm: "2026-09-26T13:00:00.000Z" });
+    const serie = saldoPorDia([], [internet], dias, carteira);
+    expect(serie).toEqual([3402, 3402, 3282]);
   });
 });
 
