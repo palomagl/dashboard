@@ -177,7 +177,7 @@ export function DashboardHeader() {
       {/* Date Row */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Calendar className="w-4 h-4 flex-shrink-0" />
-        <span className="capitalize truncate">{formatDate(currentDate)}</span>
+        <span className="block min-w-0 truncate first-letter:uppercase">{formatDate(currentDate)}</span>
         {clima && (
           <span className="ml-auto flex shrink-0 items-center gap-1.5" title={resumoClima ?? undefined}>
             <span className={`grid h-7 w-7 place-items-center rounded-full ${ceu.classe}`}>

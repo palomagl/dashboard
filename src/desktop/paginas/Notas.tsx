@@ -151,9 +151,9 @@ function PostIt({ nota }: { nota: NotaAoVivo }) {
               letra
             )}
           />
-          <div className="mt-2 flex items-center justify-between gap-1">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-1">
             <Cores valor={cor} onMudar={setCor} />
-            <div className="flex">
+            <div className="ml-auto flex">
               <BotaoIcone rotulo={t("cancel")} onClick={() => setEditando(false)} className="h-7 w-7 text-[#3a2f1f]/70 hover:bg-black/5 hover:text-[#3a2f1f]">
                 <X className="h-4 w-4" />
               </BotaoIcone>
@@ -227,14 +227,14 @@ function NovoPostIt() {
           letra
         )}
       />
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <Cores valor={cor} onMudar={setCor} />
         <button
           type="button"
           onClick={colar}
           disabled={!texto.trim()}
           title={`${t("colarNoMural")} · ${t("atalhoSalvar")}`}
-          className="whitespace-nowrap rounded-full bg-[#3a2f1f] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
+          className="ml-auto whitespace-nowrap rounded-full bg-[#3a2f1f] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
         >
           {t("colar")}
         </button>

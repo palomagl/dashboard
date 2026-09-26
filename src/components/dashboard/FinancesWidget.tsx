@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowDownToLine, ArrowUpToLine, CalendarClock, Check, CreditCard, Pencil, Receipt, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowDownToLine, ArrowUpToLine, CalendarClock, Check, ChevronDown, Pencil, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import type { Bill, Transaction } from "@/lib/db";
 import { billsApi } from "@/lib/db";
 import { useCarteira, useContas, useTransacoes } from "@/lib/aoVivo";
@@ -12,10 +12,14 @@ import { situacaoDe, vencimentoDe } from "@/desktop/contas";
 import { ESTILO_SITUACAO, ESTILO_TIPO, useRotulosConta } from "@/desktop/cards/Contas";
 import { AjustarSaldoDialog, ContaDialog, TransacaoDialog } from "@/desktop/Formularios";
 
-// Finanças no celular: o mesmo que o computador faz, no tamanho do celular.
+// Finanças no celular, direto ao ponto, numa rolagem só:
+//   1. quanto tenho (toque para ajustar),
+//   2. anotar gasto, entrada ou conta,
+//   3. o mês em uma linha,
+//   4. as próximas contas a pagar,
+//   5. os últimos lançamentos.
 // Os dados vêm ao vivo (um gasto mandado pelo Telegram aparece na hora) e
-// criar ou editar abre os mesmos formulários do computador: conta parcelada,
-// todo mês, cartão, saldo ajustável...
+// criar ou editar abre os mesmos formulários do computador.
 
 const reais = (v: number, centavos = true) =>
   `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: centavos ? 2 : 0, maximumFractionDigits: centavos ? 2 : 0 })}`;
@@ -29,14 +33,17 @@ type Dialogo =
   | { tipo: "saldo" }
   | null;
 
+const POUCAS = 4;
+
 export function FinancesWidget() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const rotulos = useRotulosConta();
   const contas = useContas().itens;
   const transacoes = useTransacoes().itens;
   const carteira = useCarteira();
-  const [aba, setAba] = useState<"bills" | "transactions">("bills");
+  const [todasContas, setTodasContas] = useState(false);
   const [verPagas, setVerPagas] = useState(false);
+  const [todosLancamentos, setTodosLancamentos] = useState(false);
   const [dialogo, setDialogo] = useState<Dialogo>(null);
 
   const hoje = dayKey();
@@ -58,118 +65,107 @@ export function FinancesWidget() {
     executar(() => billsApi.update(conta.id, { paid: !conta.paid }), { erro: t("erroAoSalvar") });
 
   const fechar = () => setDialogo(null);
-  const lista = verPagas ? d.pagas : d.abertas;
+  const listaContas = verPagas ? d.pagas : d.abertas;
+  const contasVisiveis = todasContas ? listaContas : listaContas.slice(0, POUCAS);
+  const lancamentos = todosLancamentos ? transacoes.slice(0, 30) : transacoes.slice(0, 5);
+  const nomeMes = new Date(`${hoje}T12:00:00`).toLocaleDateString(locale === "pt" ? "pt-BR" : "en-US", { month: "long" });
 
   return (
-    <div className="glass-card glass-card-hover rounded-xl p-5 animate-fade-in" style={{ animationDelay: "180ms" }}>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="font-semibold text-lg flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-widget-finance" />
-            {t("financesTitle")}
-          </h3>
-          <p className="text-sm text-muted-foreground">{t("financesSubtitle")}</p>
-        </div>
-        <Wallet className="w-5 h-5 text-widget-finance" />
-      </div>
-
-      {/* Saldo (toque para ajustar) + o mês */}
+    <div className="space-y-4">
+      {/* 1. Quanto tenho */}
       <button
         type="button"
         onClick={() => setDialogo({ tipo: "saldo" })}
-        className="mb-2 flex w-full items-center justify-between gap-3 rounded-xl bg-widget-finance/10 px-4 py-3 text-left transition-colors hover:bg-widget-finance/15"
+        className="glass-card flex w-full items-center justify-between gap-3 rounded-2xl p-5 text-left animate-fade-in"
       >
         <span className="min-w-0">
-          <span className="block text-xs text-muted-foreground">{t("saldoAtual")}</span>
-          <span className={cn("block text-2xl font-bold tabular-nums", d.saldo < 0 && "text-rose-500")}>
+          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Wallet className="h-4 w-4 text-widget-finance" /> {t("saldoAtual")}
+          </span>
+          <span className={cn("mt-1 block text-[32px] font-bold leading-none tracking-tight tabular-nums", d.saldo < 0 && "text-rose-500")}>
             {carteira === undefined ? "—" : reais(d.saldo)}
           </span>
-          <span className="block text-[11px] text-muted-foreground">
-            {carteira ? t("ajustadoEm").replace("{dia}", diaMes(dayKey(new Date(carteira.definidoEm)))) : t("informarSaldo")}
+          <span className="mt-1.5 block text-xs text-muted-foreground">
+            {carteira ? t("ajustadoEm").replace("{dia}", diaMes(dayKey(new Date(carteira.definidoEm)))) : t("toqueParaInformar")}
           </span>
         </span>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-background/70 text-widget-finance">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-widget-finance/10 text-widget-finance">
           <Pencil className="h-4 w-4" />
           <span className="sr-only">{t("ajustarSaldo")}</span>
         </span>
       </button>
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        <div className="rounded-lg bg-secondary/50 p-3">
-          <p className="flex items-center gap-1 text-xs text-muted-foreground">
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-500" /> {t("entradasDoMes")}
-          </p>
-          <p className="text-sm font-semibold text-emerald-500 tabular-nums">{reais(d.entradas, false)}</p>
-        </div>
-        <div className="rounded-lg bg-secondary/50 p-3">
-          <p className="flex items-center gap-1 text-xs text-muted-foreground">
-            <TrendingDown className="h-3.5 w-3.5 text-rose-500" /> {t("gastosDoMes")}
-          </p>
-          <p className="text-sm font-semibold text-rose-500 tabular-nums">{reais(d.gastos, false)}</p>
-        </div>
-      </div>
 
-      {/* Anotar */}
-      <div className="mb-4 grid grid-cols-3 gap-2">
+      {/* 2. Anotar */}
+      <div className="grid grid-cols-3 gap-2">
         {(
           [
             { chave: "expense", Icone: ArrowDownToLine, rotulo: t("lancarGasto"), cor: "text-rose-500 bg-rose-500/10" },
             { chave: "income", Icone: ArrowUpToLine, rotulo: t("lancarEntrada"), cor: "text-violet-500 bg-violet-500/10" },
-            { chave: "conta", Icone: CalendarClock, rotulo: t("lancarConta"), cor: "text-amber-500 bg-amber-500/10" },
+            { chave: "conta", Icone: CalendarClock, rotulo: t("lancarContaCurto"), cor: "text-amber-500 bg-amber-500/10" },
           ] as const
         ).map(({ chave, Icone, rotulo, cor }) => (
           <button
             key={chave}
             type="button"
             onClick={() => setDialogo(chave === "conta" ? { tipo: "conta" } : { tipo: "transacao", tipoInicial: chave })}
-            className="flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-background/40 px-2 py-2.5 text-center text-xs font-semibold transition-colors active:scale-[0.98] hover:bg-secondary/60"
+            className="glass-card flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-center text-xs font-semibold transition-transform active:scale-[0.97]"
           >
-            <span className={cn("grid h-8 w-8 place-items-center rounded-lg", cor)}>
-              <Icone className="h-4 w-4" />
+            <span className={cn("grid h-9 w-9 place-items-center rounded-xl", cor)}>
+              <Icone className="h-[18px] w-[18px]" />
             </span>
-            <span className="leading-tight">+ {rotulo}</span>
+            + {rotulo}
           </button>
         ))}
       </div>
 
-      {/* Abas */}
-      <div className="flex gap-2 mb-4">
-        <button type="button" onClick={() => setAba("bills")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${aba === "bills" ? "bg-widget-finance text-white" : "bg-secondary/50 text-muted-foreground hover:bg-secondary"}`}>
-          <Receipt className="w-4 h-4" /> {t("financesBills")}
-        </button>
-        <button type="button" onClick={() => setAba("transactions")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${aba === "transactions" ? "bg-widget-finance text-white" : "bg-secondary/50 text-muted-foreground hover:bg-secondary"}`}>
-          <CreditCard className="w-4 h-4" /> {t("financesTransactions")}
-        </button>
+      {/* 3. O mês numa linha */}
+      <div className="glass-card rounded-2xl px-2 pb-3 pt-2.5">
+        <p className="mb-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/80">{nomeMes}</p>
+        <div className="grid grid-cols-3 divide-x divide-border/60 text-center">
+          <div className="px-2">
+            <p className="text-[11px] text-muted-foreground">{t("mesEntrou")}</p>
+            <p className="text-sm font-semibold text-emerald-500 tabular-nums">{reais(d.entradas, false)}</p>
+          </div>
+          <div className="px-2">
+            <p className="text-[11px] text-muted-foreground">{t("mesSaiu")}</p>
+            <p className="text-sm font-semibold text-rose-500 tabular-nums">{reais(d.gastos, false)}</p>
+          </div>
+          <div className="px-2">
+            <p className="text-[11px] text-muted-foreground">{t("mesAPagar")}</p>
+            <p className="text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums">{reais(d.aPagarNoMes, false)}</p>
+          </div>
+        </div>
       </div>
 
-      {aba === "bills" && (
-        <>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <span className="rounded-lg bg-rose-500/10 px-2.5 py-1.5 text-xs text-rose-500">
-              {t("financesPending")} {t("noMes")}: <strong className="tabular-nums">{reais(d.aPagarNoMes)}</strong>
-            </span>
-            <button
-              type="button"
-              onClick={() => setVerPagas((v) => !v)}
-              className="rounded-lg px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-            >
-              {verPagas ? t("filtroAPagar") : `${t("filtroPagas")} (${d.pagas.length})`}
-            </button>
-          </div>
+      {/* 4. Contas */}
+      <section className="glass-card rounded-2xl p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 font-semibold">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            {verPagas ? t("contasPagas") : t("proximasContas")}
+          </h3>
+          <button
+            type="button"
+            onClick={() => {
+              setVerPagas((v) => !v);
+              setTodasContas(false);
+            }}
+            className="rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+          >
+            {verPagas ? t("verAPagar") : `${t("filtroPagas")} (${d.pagas.length})`}
+          </button>
+        </div>
 
-          <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
-            {lista.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{verPagas ? t("nenhumaPaga") : t("nadaAPagar")}</p>}
-            {lista.map(({ conta, vencimento, situacao, dias }) => (
-              <div
-                key={conta.id}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg border p-2.5 transition-colors",
-                  conta.paid ? "border-emerald-500/20 bg-emerald-500/5" : "border-transparent bg-secondary/50"
-                )}
-              >
+        <div className="space-y-2">
+          {listaContas.length === 0 && <p className="py-5 text-center text-sm text-muted-foreground">{verPagas ? t("nenhumaPaga") : t("nadaAPagar")}</p>}
+          {contasVisiveis.map(({ conta, vencimento, situacao, dias }) => {
+            const atrasada = !conta.paid && (situacao === "vencida" || situacao === "hoje");
+            return (
+              <div key={conta.id} className={cn("flex items-center gap-3 rounded-xl p-2.5", conta.paid ? "bg-emerald-500/5" : "bg-secondary/50")}>
                 <span
                   className={cn(
                     "grid h-11 w-11 shrink-0 place-items-center rounded-lg text-center leading-none",
-                    situacao === "vencida" || situacao === "hoje" ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-background/70"
+                    atrasada ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-background/70"
                   )}
                 >
                   <span>
@@ -180,55 +176,87 @@ export function FinancesWidget() {
                   </span>
                 </span>
                 <button type="button" onClick={() => setDialogo({ tipo: "conta", inicial: conta })} className="min-w-0 flex-1 text-left">
-                  <p className={cn("truncate text-sm font-medium", conta.paid && "text-muted-foreground line-through")}>{conta.name}</p>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px]">
-                    <span className={cn("rounded px-1 py-px font-semibold", ESTILO_TIPO[conta.tipo ?? "avulsa"])}>{rotulos.tipo(conta)}</span>
-                    {!conta.paid && <span className={cn("rounded px-1 py-px font-semibold", ESTILO_SITUACAO[situacao])}>{rotulos.situacao(situacao, dias)}</span>}
-                  </p>
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className={cn("truncate text-sm font-medium", conta.paid && "text-muted-foreground line-through")}>{conta.name}</span>
+                    <span className={cn("shrink-0 text-sm font-semibold tabular-nums", conta.paid && "text-muted-foreground")}>{reais(conta.amount)}</span>
+                  </span>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px]">
+                    {conta.tipo && conta.tipo !== "avulsa" && (
+                      <span className={cn("rounded px-1 py-px font-semibold", ESTILO_TIPO[conta.tipo])}>{rotulos.tipo(conta)}</span>
+                    )}
+                    {!conta.paid && (
+                      <span className={cn("rounded px-1 py-px font-semibold", ESTILO_SITUACAO[situacao])}>{rotulos.situacao(situacao, dias)}</span>
+                    )}
+                  </span>
                 </button>
-                <span className={cn("shrink-0 text-sm font-semibold tabular-nums", conta.paid && "text-muted-foreground")}>{reais(conta.amount)}</span>
                 <button
                   type="button"
                   onClick={() => alternarPaga(conta)}
                   aria-label={conta.paid ? t("financesMarkUnpaid") : t("financesMarkPaid")}
                   className={cn(
-                    "grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 transition-colors",
-                    conta.paid ? "border-emerald-500 bg-emerald-500 text-white" : "border-muted-foreground/40 text-transparent hover:border-emerald-500 hover:text-emerald-500"
+                    "grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 transition-colors",
+                    conta.paid ? "border-emerald-500 bg-emerald-500 text-white" : "border-muted-foreground/40 text-transparent active:border-emerald-500 active:text-emerald-500"
                   )}
                 >
                   <Check className="h-4 w-4" strokeWidth={3} />
                 </button>
               </div>
-            ))}
-          </div>
-        </>
-      )}
+            );
+          })}
+        </div>
+        {listaContas.length > POUCAS && (
+          <button
+            type="button"
+            onClick={() => setTodasContas((v) => !v)}
+            className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg py-2 text-xs font-semibold text-widget-finance"
+          >
+            {todasContas ? t("verMenos") : t("verTodasN").replace("{n}", String(listaContas.length))}
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", todasContas && "rotate-180")} />
+          </button>
+        )}
+      </section>
 
-      {aba === "transactions" && (
-        <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
-          {transacoes.map((tr) => (
+      {/* 5. Últimos lançamentos */}
+      <section className="glass-card rounded-2xl p-4">
+        <h3 className="mb-3 flex items-center gap-2 font-semibold">
+          <span className="h-2 w-2 rounded-full bg-widget-finance" />
+          {t("ultimosLancamentos")}
+        </h3>
+        <div className="space-y-1">
+          {transacoes.length === 0 && <p className="py-5 text-center text-sm text-muted-foreground">{t("semLancamentos")}</p>}
+          {lancamentos.map((tr) => (
             <button
               key={tr.id}
               type="button"
               onClick={() => setDialogo({ tipo: "transacao", inicial: tr })}
-              className="flex w-full items-center gap-3 rounded-lg bg-secondary/50 p-3 text-left transition-colors hover:bg-secondary"
+              className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors active:bg-secondary"
             >
-              <span className={`p-2 rounded-lg ${tr.type === "income" ? "bg-emerald-500/10" : "bg-rose-500/10"}`}>
-                {tr.type === "income" ? <TrendingUp className="w-4 h-4 text-emerald-500" /> : <TrendingDown className="w-4 h-4 text-rose-500" />}
+              <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", tr.type === "income" ? "bg-emerald-500/10" : "bg-rose-500/10")}>
+                {tr.type === "income" ? <TrendingUp className="h-4 w-4 text-emerald-500" /> : <TrendingDown className="h-4 w-4 text-rose-500" />}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{tr.description}</span>
                 <span className="block text-xs text-muted-foreground">
-                  {diaMes(tr.date)} • {tr.category ?? "Outros"}
+                  {diaMes(tr.date)} · {tr.category ?? "Outros"}
                 </span>
               </span>
-              <span className={`shrink-0 text-sm font-semibold tabular-nums ${tr.type === "income" ? "text-emerald-500" : "text-rose-500"}`}>
-                {tr.type === "income" ? "+" : "-"} {reais(tr.amount)}
+              <span className={cn("shrink-0 text-sm font-semibold tabular-nums", tr.type === "income" ? "text-emerald-500" : "text-rose-500")}>
+                {tr.type === "income" ? "+" : "−"} {reais(tr.amount)}
               </span>
             </button>
           ))}
         </div>
-      )}
+        {transacoes.length > 5 && (
+          <button
+            type="button"
+            onClick={() => setTodosLancamentos((v) => !v)}
+            className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg py-2 text-xs font-semibold text-widget-finance"
+          >
+            {todosLancamentos ? t("verMenos") : t("verMais")}
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", todosLancamentos && "rotate-180")} />
+          </button>
+        )}
+      </section>
 
       <TransacaoDialog
         aberto={dialogo?.tipo === "transacao"}

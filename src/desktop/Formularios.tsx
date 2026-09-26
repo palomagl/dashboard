@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { CreditCard, Layers, Plus, Receipt, Repeat, X } from "lucide-react";
+import { Layers, Plus, Receipt, Repeat, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -31,11 +31,13 @@ import {
   type Carteira,
   type CategoriaTransacao,
   type Goal,
+  type TipoConta,
   type Transaction,
 } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { lerValor } from "./calculos";
 import { normalizarCategoria } from "./categorias";
+import { sugerirCategoria } from "@/lib/palpites";
 import { CATEGORIAS_CONTA, classificar, gerarRepeticoes, proximasParcelas, vencimentoDe } from "./contas";
 import { reais } from "./formato";
 
@@ -151,6 +153,7 @@ export function TransacaoDialog({
   const [valor, setValor] = useState("");
   const [categoria, setCategoria] = useState<CategoriaTransacao>("Outros");
   const [data, setData] = useState(dayKey());
+  const [categoriaTocada, setCategoriaTocada] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -160,7 +163,14 @@ export function TransacaoDialog({
     setValor(valorParaTexto(inicial?.amount));
     setCategoria(normalizarCategoria(inicial?.category));
     setData(inicial?.date || dayKey());
+    setCategoriaTocada(!!inicial);
   }, [aberto, inicial, tipoInicial]);
+
+  // "Mercado" já vem como Alimentação, "Uber" como Transporte (dá para trocar).
+  useEffect(() => {
+    if (categoriaTocada || tipo !== "expense") return;
+    setCategoria(sugerirCategoria(descricao) ?? "Outros");
+  }, [descricao, tipo, categoriaTocada]);
 
   const numero = lerValor(valor);
   const podeSalvar = descricao.trim().length > 0 && numero > 0 && !!data;
@@ -224,7 +234,13 @@ export function TransacaoDialog({
         </Campo>
       </div>
       <Campo rotulo={t("financeCategoryField")}>
-        <Select value={categoria} onValueChange={(v) => setCategoria(v as CategoriaTransacao)}>
+        <Select
+          value={categoria}
+          onValueChange={(v) => {
+            setCategoria(v as CategoriaTransacao);
+            setCategoriaTocada(true);
+          }}
+        >
           <SelectTrigger className={campo}>
             <SelectValue />
           </SelectTrigger>
@@ -245,7 +261,13 @@ export function TransacaoDialog({
 // Conta
 // ----------------------------------------------
 
-type ComoPaga = "avulsa" | "parcela" | "fixa" | "cartao";
+/**
+ * Só três escolhas na tela: uma vez, parcelada ou todo mês. "Cartão" continua
+ * existindo, mas quem decide é o nome ("Cartão Vó", "fatura..."): a pessoa
+ * não precisa pensar nisso.
+ */
+type ComoPaga = "avulsa" | "parcela" | "fixa";
+const paraEscolha = (tipo: TipoConta | undefined): ComoPaga => (tipo === "parcela" || tipo === "fixa" ? tipo : "avulsa");
 
 const ATALHOS_VEZES: Record<"parcela" | "fixa", number[]> = {
   parcela: [2, 3, 4, 5, 6, 10, 12],
@@ -271,6 +293,7 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
   const [categoria, setCategoria] = useState("Compras");
   const [tipoTocado, setTipoTocado] = useState(false);
   const [categoriaTocada, setCategoriaTocada] = useState(false);
+  const [trocandoCategoria, setTrocandoCategoria] = useState(false);
   const [nasProximas, setNasProximas] = useState(true);
   const [salvando, setSalvando] = useState(false);
 
@@ -279,7 +302,7 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
     setNome(inicial?.name ?? "");
     setValor(valorParaTexto(inicial?.amount));
     setVencimento(inicial ? vencimentoDe(inicial) : dayKey());
-    setTipo(inicial?.tipo ?? "avulsa");
+    setTipo(paraEscolha(inicial?.tipo));
     setVezes(null);
     setValorTotal(false);
     setJaPaguei(false);
@@ -287,6 +310,7 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
     setCategoria(inicial?.category ?? "Compras");
     setTipoTocado(!!inicial);
     setCategoriaTocada(!!inicial);
+    setTrocandoCategoria(false);
     setNasProximas(true);
   }, [aberto, inicial]);
 
@@ -296,8 +320,11 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
     if (inicial || !nome.trim()) return;
     const palpite = classificar(nome);
     if (!categoriaTocada) setCategoria(palpite.categoria);
-    if (!tipoTocado) setTipo(palpite.tipo);
+    if (!tipoTocado) setTipo(paraEscolha(palpite.tipo));
   }, [nome, inicial, categoriaTocada, tipoTocado]);
+
+  // "Uma vez" com nome de cartão vira conta de cartão (a etiqueta azul da lista).
+  const tipoFinal: TipoConta = tipo === "avulsa" && classificar(nome).tipo === "cartao" ? "cartao" : tipo;
 
   const numero = lerValor(valor);
   const vezesTexto = vezes ?? (tipo === "fixa" ? "12" : "3");
@@ -314,11 +341,11 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
   const previa = useMemo(() => {
     if (!repete || !podeSalvar) return null;
     return gerarRepeticoes(
-      { nome: nome.trim(), valor: numero, vencimento, categoria, tipo },
+      { nome: nome.trim(), valor: numero, vencimento, categoria, tipo: tipoFinal },
       n,
       { primeira: inicio, valorTotal: tipo === "parcela" && valorTotal }
     );
-  }, [repete, podeSalvar, nome, numero, vencimento, categoria, tipo, n, inicio, valorTotal]);
+  }, [repete, podeSalvar, nome, numero, vencimento, categoria, tipo, tipoFinal, n, inicio, valorTotal]);
 
   const categorias = CATEGORIAS_CONTA.includes(categoria) ? CATEGORIAS_CONTA : [...CATEGORIAS_CONTA, categoria];
 
@@ -327,12 +354,12 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
     const ok = await executar(
       async () => {
         if (inicial) {
-          const mudancas = { name: nome.trim(), amount: numero, category: categoria, tipo };
+          const mudancas = { name: nome.trim(), amount: numero, category: categoria, tipo: tipoFinal };
           await billsApi.update(inicial.id, { ...mudancas, vencimento, dueDate: String(Number(vencimento.slice(8))) });
           if (nasProximas) await Promise.all(proximas.map((c) => billsApi.update(c.id, mudancas)));
           return;
         }
-        const contas = previa ?? gerarRepeticoes({ nome: nome.trim(), valor: numero, vencimento, categoria, tipo }, 1);
+        const contas = previa ?? gerarRepeticoes({ nome: nome.trim(), valor: numero, vencimento, categoria, tipo: tipoFinal }, 1);
         await Promise.all(contas.map((c) => billsApi.create(c)));
       },
       { erro: inicial ? t("erroAoSalvar") : t("erroAoAdicionar") }
@@ -351,7 +378,6 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
     { valor: "avulsa", Icone: Receipt, rotulo: t("comoUmaVez"), dica: t("comoUmaVezDica") },
     { valor: "parcela", Icone: Layers, rotulo: t("comoParcelada"), dica: t("comoParceladaDica") },
     { valor: "fixa", Icone: Repeat, rotulo: t("comoTodoMes"), dica: t("comoTodoMesDica") },
-    { valor: "cartao", Icone: CreditCard, rotulo: t("comoCartao"), dica: t("comoCartaoDica") },
   ];
 
   const rotuloValor = inicial?.parcela
@@ -384,7 +410,7 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
 
       <div className="space-y-1.5">
         <span className="text-xs font-semibold text-muted-foreground">{t("comoEConta")}</span>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label={t("comoEConta")}>
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t("comoEConta")}>
           {opcoes.map(({ valor: v, Icone, rotulo, dica }) => {
             const ativo = tipo === v;
             return (
@@ -502,26 +528,37 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
         </Campo>
       </div>
 
-      <Campo rotulo={t("financeCategoryField")}>
-        <Select
-          value={categoria}
-          onValueChange={(v) => {
-            setCategoria(v);
-            setCategoriaTocada(true);
-          }}
-        >
-          <SelectTrigger className={campo}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {categorias.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Campo>
+      {/* A categoria sai sozinha do nome; só abre o seletor se a pessoa quiser trocar. */}
+      {trocandoCategoria ? (
+        <Campo rotulo={t("financeCategoryField")}>
+          <Select
+            value={categoria}
+            onValueChange={(v) => {
+              setCategoria(v);
+              setCategoriaTocada(true);
+            }}
+          >
+            <SelectTrigger className={campo}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categorias.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Campo>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {t("financeCategoryField")}: <span className="font-semibold text-foreground">{categoria}</span>
+          {" · "}
+          <button type="button" onClick={() => setTrocandoCategoria(true)} className="font-semibold text-primary hover:underline">
+            {t("trocar")}
+          </button>
+        </p>
+      )}
 
       {previa && previa.length > 0 && (
         <div className="rounded-2xl border border-primary/25 bg-primary/[0.05] px-4 py-3 text-sm" aria-live="polite">

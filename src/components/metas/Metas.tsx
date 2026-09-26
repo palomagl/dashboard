@@ -40,7 +40,7 @@ export function useTextosMeta() {
           : t("metaFaltam").replace("{quanto}", `${numero(v.falta)} ${v.unidade}`.trim());
       }
       if (v.tipo === "dinheiro") return t("metaGuardePorMes").replace("{valor}", reais(Math.ceil(v.porMes)));
-      if (v.porMes >= 1) return t("metaPorMes").replace("{n}", numero(v.porMes)).replace("{unidade}", v.unidade).trim();
+      if (v.porMes >= 1) return t("metaPorMes").replace("{n}", numero(v.porMes));
       return t("metaUmACada").replace("{n}", String(Math.ceil(1 / v.porMes)));
     },
   };
@@ -186,7 +186,8 @@ export function MetaItem({ meta, onEditar }: { meta: Goal; onEditar: () => void 
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
             <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${v.pct}%`, backgroundColor: cor }} />
           </div>
-          {v.tipo === "dinheiro" ? (
+          {/* Meta batida: sem botões (dá para mudar tocando nela). */}
+          {v.concluida ? null : v.tipo === "dinheiro" ? (
             <GuardarDinheiro meta={meta} v={v} />
           ) : (
             <>

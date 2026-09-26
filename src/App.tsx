@@ -7,6 +7,7 @@ import { LocaleProvider } from "@/contexts/LocaleContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SplashScreen } from "@/components/SplashScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useTelaGrande } from "@/hooks/useTelaGrande";
 import { AppShell } from "@/components/AppShell";
 import Hoje from "./pages/Hoje";
 import Progresso from "./pages/Progresso";
@@ -53,11 +54,17 @@ function Conteudo() {
   );
 }
 
+// No celular o aviso aparece em cima: embaixo ficaria por cima do menu de abas.
+function Avisos() {
+  const telaGrande = useTelaGrande();
+  return <Sonner position={telaGrande ? "bottom-right" : "top-center"} />;
+}
+
 const App = () => (
   <ErrorBoundary>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Avisos />
       <BrowserRouter>
         <AuthProvider>
           <LocaleProvider>

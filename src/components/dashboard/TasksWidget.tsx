@@ -104,7 +104,7 @@ export function TasksWidget() {
             {completedCount} {t("tasksOf")} {tasks.length} {t("tasksCompletedOf")}
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setShowAddForm(!showAddForm)}>
+        <Button variant="ghost" size="icon" onClick={() => setShowAddForm(!showAddForm)} aria-label={showAddForm ? t("close") : t("tasksAdd")}>
           {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
         </Button>
       </div>
@@ -144,66 +144,82 @@ export function TasksWidget() {
         </div>
       )}
 
-      <div className="space-y-2 max-h-[280px] overflow-y-auto pr-2">
-        {tasks.map((task) => (
-          <div
-            key={task.id}
-            className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 group
-              ${task.completed 
-                ? 'bg-secondary/30 opacity-60' 
-                : 'bg-secondary/50 hover:bg-secondary'
-              }`}
-          >
-            {editingId === task.id ? (
-              <>
-                <Input
-                  value={editingTitle}
-                  onChange={(e) => setEditingTitle(e.target.value)}
-                  className="flex-1 h-8 bg-background/50 border-border/50"
-                  autoFocus
-                />
+      {/* No celular a lista cresce com a página (rolar dentro de um card é ruim no dedo). */}
+      <div className="space-y-2 lg:max-h-[280px] lg:overflow-y-auto lg:pr-2">
+        {tasks.map((task) =>
+          editingId === task.id ? (
+            <div key={task.id} className="space-y-2 rounded-lg bg-secondary/60 p-3">
+              <Input
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveEdit();
+                  if (e.key === "Escape") cancelEdit();
+                }}
+                className="h-10 bg-background/70 border-border/50"
+                autoFocus
+              />
+              <div className="flex items-center gap-2">
                 <Select value={editingCategory} onValueChange={setEditingCategory}>
-                  <SelectTrigger className="w-28 h-8 bg-background/50 border-border/50">
+                  <SelectTrigger className="h-9 flex-1 bg-background/70 border-border/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map(cat => (
+                    {categories.map((cat) => (
                       <SelectItem key={cat} value={cat}>{t(CATEGORY_KEYS[cat] ?? "categoryGeneral")}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <button type="button" onClick={saveEdit} className="p-1" aria-label={t("save")}>
-                  <Check className="w-4 h-4 text-emerald-500" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteTask(task.id);
+                    cancelEdit();
+                  }}
+                  className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  aria-label={t("deleteTask")}
+                >
+                  <Trash2 className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={cancelEdit} className="p-1" aria-label={t("cancel")}>
-                  <X className="w-4 h-4 text-muted-foreground" />
+                <button type="button" onClick={cancelEdit} className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-background/70" aria-label={t("cancel")}>
+                  <X className="h-4 w-4" />
                 </button>
-              </>
-            ) : (
-              <>
-                <button type="button" onClick={() => toggleTask(task.id)} className="shrink-0" aria-label={task.completed ? t("uncompleteTask") : t("completeTask")}>
-                  {task.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-widget-tasks" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-muted-foreground group-hover:text-widget-tasks transition-colors" />
-                  )}
+                <button type="button" onClick={saveEdit} className="grid h-9 w-9 place-items-center rounded-lg bg-widget-tasks text-white" aria-label={t("save")}>
+                  <Check className="h-4 w-4" />
                 </button>
-                <span className={`flex-1 text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
-                  {task.title}
-                </span>
-                <span className="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded">
+              </div>
+            </div>
+          ) : (
+            <div
+              key={task.id}
+              className={`flex items-center gap-3 rounded-lg p-3 transition-all duration-200 ${
+                task.completed ? "bg-secondary/30 opacity-60" : "bg-secondary/50 hover:bg-secondary"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => toggleTask(task.id)}
+                className="-m-1.5 shrink-0 p-1.5"
+                aria-label={task.completed ? t("uncompleteTask") : t("completeTask")}
+              >
+                {task.completed ? <CheckCircle2 className="h-5 w-5 text-widget-tasks" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+              </button>
+              {/* Tocar no nome abre a edição (onde também dá para excluir). */}
+              <button
+                type="button"
+                onClick={() => startEditing(task)}
+                className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+                aria-label={`${t("editTask")}: ${task.title}`}
+              >
+                <span className={`min-w-0 text-sm ${task.completed ? "line-through text-muted-foreground" : ""}`}>{task.title}</span>
+                <span className="shrink-0 rounded bg-background/50 px-2 py-0.5 text-[11px] text-muted-foreground">
                   {t(CATEGORY_KEYS[task.category] ?? "categoryGeneral")}
                 </span>
-                <button type="button" onClick={() => startEditing(task)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1" aria-label={t("editTask")}>
-                  <Pencil className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                </button>
-                <button type="button" onClick={() => deleteTask(task.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1" aria-label={t("deleteTask")}>
-                  <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
-                </button>
-              </>
-            )}
-          </div>
-        ))}
+              </button>
+              <Pencil className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground/60 lg:block" aria-hidden />
+            </div>
+          )
+        )}
         {tasks.length === 0 && (
           <div className="text-center py-8 text-muted-foreground text-sm">
             {t("tasksEmpty")}
