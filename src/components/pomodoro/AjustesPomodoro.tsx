@@ -65,13 +65,13 @@ export function AjustesPomodoro({ className }: { className?: string }) {
           <Settings2 className="h-4 w-4" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[300px] rounded-2xl p-4">
+      <PopoverContent align="end" collisionPadding={{ top: 12, bottom: 88 }} className="max-h-[var(--radix-popover-content-available-height)] w-[300px] overflow-y-auto rounded-2xl p-4 pb-0">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             if (escolhido) salvar(escolhido);
           }}
-          className="space-y-4"
+          className="space-y-3"
         >
           <div>
             <p className="text-sm font-semibold">{t("pomodoroTempos")}</p>
@@ -103,7 +103,7 @@ export function AjustesPomodoro({ className }: { className?: string }) {
             })}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {campos.map((c) => (
               <label key={c.chave} className="flex items-center justify-between gap-3 text-sm">
                 <span className="text-muted-foreground">{c.rotulo}</span>
@@ -115,7 +115,7 @@ export function AjustesPomodoro({ className }: { className?: string }) {
                     max={c.chave === "ciclo" ? 8 : 180}
                     value={rascunho[c.chave]}
                     onChange={(e) => setRascunho((r) => ({ ...r, [c.chave]: e.target.value }))}
-                    className="h-9 w-[72px] rounded-lg text-center tabular-nums"
+                    className="h-8 w-[68px] rounded-lg text-center tabular-nums"
                   />
                   <span className="w-10 text-xs text-muted-foreground">{c.sufixo}</span>
                 </span>
@@ -123,7 +123,7 @@ export function AjustesPomodoro({ className }: { className?: string }) {
             ))}
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="sticky bottom-0 -mx-4 flex justify-end gap-2 border-t border-border/60 bg-popover px-4 py-3">
             <Button type="button" variant="ghost" size="sm" className="rounded-xl" onClick={() => setAberto(false)}>
               {t("cancel")}
             </Button>

@@ -108,6 +108,27 @@ function Janela({
   );
 }
 
+/** "Excluir" que pede um segundo clique antes de apagar (fica à esquerda do rodapé). */
+function BotaoExcluir({ rotulo, onExcluir, aberto }: { rotulo: string; onExcluir: () => Promise<unknown>; aberto: boolean }) {
+  const { t } = useLocale();
+  const [confirmar, setConfirmar] = useState(false);
+  useEffect(() => {
+    if (aberto) setConfirmar(false);
+  }, [aberto]);
+  return (
+    <button
+      type="button"
+      onClick={() => (confirmar ? onExcluir() : setConfirmar(true))}
+      className={cn(
+        "rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors",
+        confirmar ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-destructive"
+      )}
+    >
+      {confirmar ? t("cliqueDeNovoExcluir") : rotulo}
+    </button>
+  );
+}
+
 // ----------------------------------------------
 // Transação
 // ----------------------------------------------
@@ -158,6 +179,12 @@ export function TransacaoDialog({
     if (ok !== null) onFechar();
   };
 
+  const excluir = async () => {
+    if (!inicial) return;
+    const ok = await executar(() => transactionsApi.delete(inicial.id), { erro: t("erroAoExcluir") });
+    if (ok !== null) onFechar();
+  };
+
   return (
     <Janela
       aberto={aberto}
@@ -166,6 +193,7 @@ export function TransacaoDialog({
       onSalvar={salvar}
       salvando={salvando}
       podeSalvar={podeSalvar}
+      rodapeExtra={inicial ? <BotaoExcluir rotulo={t("financesDeleteTransaction")} onExcluir={excluir} aberto={aberto} /> : undefined}
     >
       <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1" role="radiogroup" aria-label={t("tipo")}>
         {(["expense", "income"] as const).map((op) => (
@@ -313,6 +341,12 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
     if (ok !== null) onFechar();
   };
 
+  const excluir = async () => {
+    if (!inicial) return;
+    const ok = await executar(() => billsApi.delete(inicial.id), { erro: t("erroAoExcluir") });
+    if (ok !== null) onFechar();
+  };
+
   const opcoes: { valor: ComoPaga; Icone: typeof Receipt; rotulo: string; dica: string }[] = [
     { valor: "avulsa", Icone: Receipt, rotulo: t("comoUmaVez"), dica: t("comoUmaVezDica") },
     { valor: "parcela", Icone: Layers, rotulo: t("comoParcelada"), dica: t("comoParceladaDica") },
@@ -342,6 +376,7 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
       salvando={salvando}
       podeSalvar={podeSalvar}
       largura="max-w-lg"
+      rodapeExtra={inicial ? <BotaoExcluir rotulo={t("financesDeleteBill")} onExcluir={excluir} aberto={aberto} /> : undefined}
     >
       <Campo rotulo={t("financesBillName")}>
         <Input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} className={campo} placeholder={t("exConta")} />
@@ -349,7 +384,7 @@ export function ContaDialog({ aberto, onFechar, inicial }: { aberto: boolean; on
 
       <div className="space-y-1.5">
         <span className="text-xs font-semibold text-muted-foreground">{t("comoEConta")}</span>
-        <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label={t("comoEConta")}>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label={t("comoEConta")}>
           {opcoes.map(({ valor: v, Icone, rotulo, dica }) => {
             const ativo = tipo === v;
             return (
@@ -685,12 +720,10 @@ export function MetaDialog({ aberto, onFechar, inicial }: { aberto: boolean; onF
   const [longo, setLongo] = useState(false);
   const [prazo, setPrazo] = useState(somarMesesAoMes(mesAtual(), 12));
   const [escolhendoIcone, setEscolhendoIcone] = useState(false);
-  const [confirmarExclusao, setConfirmarExclusao] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     if (!aberto) return;
-    setConfirmarExclusao(false);
     if (!inicial) {
       setTitulo("");
       setIcone(null);
@@ -779,10 +812,6 @@ export function MetaDialog({ aberto, onFechar, inicial }: { aberto: boolean; onF
 
   const excluir = async () => {
     if (!inicial) return;
-    if (!confirmarExclusao) {
-      setConfirmarExclusao(true);
-      return;
-    }
     const ok = await executar(() => goalsApi.delete(inicial.id), { erro: t("erroAoExcluir") });
     if (ok !== null) onFechar();
   };
@@ -811,20 +840,7 @@ export function MetaDialog({ aberto, onFechar, inicial }: { aberto: boolean; onF
       salvando={salvando}
       podeSalvar={podeSalvar}
       largura="max-w-lg"
-      rodapeExtra={
-        inicial ? (
-          <button
-            type="button"
-            onClick={excluir}
-            className={cn(
-              "rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors",
-              confirmarExclusao ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-destructive"
-            )}
-          >
-            {confirmarExclusao ? t("cliqueDeNovoExcluir") : t("goalsDelete")}
-          </button>
-        ) : undefined
-      }
+      rodapeExtra={inicial ? <BotaoExcluir rotulo={t("goalsDelete")} onExcluir={excluir} aberto={aberto} /> : undefined}
     >
       <Campo rotulo={t("goalsNamePlaceholder")}>
         <div className="flex gap-2">

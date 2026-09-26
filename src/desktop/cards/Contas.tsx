@@ -79,7 +79,7 @@ export const ESTILO_TIPO: Record<string, string> = {
   avulsa: "bg-slate-500/10 text-slate-600 dark:text-slate-300",
 };
 
-const ESTILO_SITUACAO: Record<Situacao, string> = {
+export const ESTILO_SITUACAO: Record<Situacao, string> = {
   paga: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   vencida: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
   hoje: "bg-rose-500/10 text-rose-700 dark:text-rose-400",

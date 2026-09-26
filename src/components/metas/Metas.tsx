@@ -89,7 +89,7 @@ function GuardarDinheiro({ meta, v }: { meta: Goal; v: MetaVista }) {
           <Plus className="h-3.5 w-3.5" /> {t("metaGuardar")}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-60 rounded-2xl p-3">
+      <PopoverContent align="end" collisionPadding={{ top: 12, bottom: 88 }} className="w-60 rounded-2xl p-3">
         <form
           onSubmit={(e) => {
             e.preventDefault();

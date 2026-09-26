@@ -1,165 +1,64 @@
-import { useState, useEffect } from "react";
-import { Plus, Wallet, TrendingUp, TrendingDown, CreditCard, Receipt, Trash2, Pencil, Check, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { billsApi, carteiraApi, transactionsApi, Bill, Carteira, Transaction, CATEGORIAS_TRANSACAO, CategoriaTransacao } from "@/lib/db";
-import { paraData } from "@/lib/aoVivo";
-import { saldoAtual } from "@/desktop/calculos";
-import { vencimentoDe } from "@/desktop/contas";
+import { useMemo, useState } from "react";
+import { ArrowDownToLine, ArrowUpToLine, CalendarClock, Check, CreditCard, Pencil, Receipt, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import type { Bill, Transaction } from "@/lib/db";
+import { billsApi } from "@/lib/db";
+import { useCarteira, useContas, useTransacoes } from "@/lib/aoVivo";
 import { dayKey } from "@/lib/dates";
-import { executar, carregar } from "@/lib/acoes";
+import { executar } from "@/lib/acoes";
+import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
+import { saldoAtual, totaisDoMes } from "@/desktop/calculos";
+import { situacaoDe, vencimentoDe } from "@/desktop/contas";
+import { ESTILO_SITUACAO, ESTILO_TIPO, useRotulosConta } from "@/desktop/cards/Contas";
+import { AjustarSaldoDialog, ContaDialog, TransacaoDialog } from "@/desktop/Formularios";
 
-/**
- * A data da transação é guardada como "2026-09-22" para dar para somar por mês.
- * Aqui ela vira o "22/09" curto que aparece na lista. O meio-dia evita que o
- * fuso jogue a data para o dia anterior.
- */
-function dataCurta(iso: string, locale: string) {
-  if (!iso) return "";
-  return new Date(`${iso}T12:00:00`).toLocaleDateString(locale === "pt" ? "pt-BR" : "en-US", {
-    day: "2-digit",
-    month: "2-digit",
-  });
-}
+// Finanças no celular: o mesmo que o computador faz, no tamanho do celular.
+// Os dados vêm ao vivo (um gasto mandado pelo Telegram aparece na hora) e
+// criar ou editar abre os mesmos formulários do computador: conta parcelada,
+// todo mês, cartão, saldo ajustável...
+
+const reais = (v: number, centavos = true) =>
+  `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: centavos ? 2 : 0, maximumFractionDigits: centavos ? 2 : 0 })}`;
+
+/** "2026-09-22" -> "22/09". */
+const diaMes = (chave: string) => `${chave.slice(8)}/${chave.slice(5, 7)}`;
+
+type Dialogo =
+  | { tipo: "transacao"; inicial?: Transaction; tipoInicial?: Transaction["type"] }
+  | { tipo: "conta"; inicial?: Bill }
+  | { tipo: "saldo" }
+  | null;
 
 export function FinancesWidget() {
-  const { t, locale } = useLocale();
-  const [bills, setBills] = useState<Bill[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [activeTab, setActiveTab] = useState<"bills" | "transactions">("bills");
-  const [showAddBill, setShowAddBill] = useState(false);
-  const [showAddTransaction, setShowAddTransaction] = useState(false);
-  const [newBill, setNewBill] = useState({ name: "", amount: "", dueDate: "", category: "Serviços" });
-  const [newTransaction, setNewTransaction] = useState({ description: "", amount: "", type: "expense" as "income" | "expense", category: "Outros" as CategoriaTransacao });
-  const [editingBillId, setEditingBillId] = useState<string | null>(null);
-  const [editingBill, setEditingBill] = useState({ name: "", amount: "", dueDate: "", category: "" });
-  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
-  const [editingTransaction, setEditingTransaction] = useState({ description: "", amount: "", type: "expense" as "income" | "expense", category: "Outros" as CategoriaTransacao });
-  const [carteira, setCarteira] = useState<Carteira | null>(null);
+  const { t } = useLocale();
+  const rotulos = useRotulosConta();
+  const contas = useContas().itens;
+  const transacoes = useTransacoes().itens;
+  const carteira = useCarteira();
+  const [aba, setAba] = useState<"bills" | "transactions">("bills");
+  const [verPagas, setVerPagas] = useState(false);
+  const [dialogo, setDialogo] = useState<Dialogo>(null);
 
-  useEffect(() => {
-    carregar(() => billsApi.list(), "contas").then((lista) => lista && setBills(lista));
-    carregar(() => transactionsApi.list(), "transações").then((lista) => lista && setTransactions(lista));
-    carregar(() => carteiraApi.ler(), "saldo").then((c) => setCarteira(c ?? null));
-  }, []);
-
-  const toggleBillPaid = async (id: string) => {
-    const bill = bills.find(b => b.id === id);
-    if (!bill) return;
-    const salvo = await executar(
-      () => billsApi.update(id, { paid: !bill.paid }),
-      { erro: t("erroAoSalvar") }
-    );
-    if (salvo === null) return;
-    setBills(bills.map(b => b.id === id ? { ...b, paid: !b.paid, pagaEm: !b.paid ? new Date().toISOString() : undefined } : b));
-  };
-
-  const deleteBill = async (id: string) => {
-    const feito = await executar(() => billsApi.delete(id), { erro: t("erroAoExcluir") });
-    if (feito === null) return;
-    setBills(bills.filter(b => b.id !== id));
-  };
-
-  const deleteTransaction = async (id: string) => {
-    const feito = await executar(() => transactionsApi.delete(id), { erro: t("erroAoExcluir") });
-    if (feito === null) return;
-    setTransactions(transactions.filter(t => t.id !== id));
-  };
-
-  const addBill = async () => {
-    const valor = parseFloat(newBill.amount);
-    if (!newBill.name.trim() || !Number.isFinite(valor) || !newBill.dueDate) return;
-    const bill = await executar(
-      () => billsApi.create({ name: newBill.name.trim(), amount: valor, dueDate: newBill.dueDate, category: newBill.category, paid: false }),
-      { erro: t("erroAoAdicionar") }
-    );
-    if (!bill) return;
-    setBills([...bills, bill]);
-    setNewBill({ name: "", amount: "", dueDate: "", category: "Serviços" });
-    setShowAddBill(false);
-  };
-
-  const addTransaction = async () => {
-    const valor = parseFloat(newTransaction.amount);
-    if (!newTransaction.description.trim() || !Number.isFinite(valor)) return;
-    const criada = await executar(
-      () => transactionsApi.create({ description: newTransaction.description.trim(), amount: valor, type: newTransaction.type, date: dayKey(), category: newTransaction.category }),
-      { erro: t("erroAoAdicionar") }
-    );
-    if (!criada) return;
-    setTransactions([criada, ...transactions]);
-    setNewTransaction({ description: "", amount: "", type: "expense", category: "Outros" });
-    setShowAddTransaction(false);
-  };
-
-  const startEditingBill = (bill: Bill) => {
-    setEditingBillId(bill.id);
-    setEditingBill({ name: bill.name, amount: bill.amount.toString(), dueDate: bill.dueDate, category: bill.category });
-  };
-
-  const saveEditBill = async () => {
-    const valor = parseFloat(editingBill.amount);
-    if (!editingBill.name.trim() || !Number.isFinite(valor) || !editingBillId) return;
-    const dados = {
-      name: editingBill.name.trim(),
-      amount: valor,
-      dueDate: editingBill.dueDate,
-      category: editingBill.category,
+  const hoje = dayKey();
+  const d = useMemo(() => {
+    const mes = totaisDoMes(transacoes, hoje.slice(0, 7));
+    const fimDoMes = `${hoje.slice(0, 7)}-31`;
+    const comData = contas.map((c) => ({ conta: c, vencimento: vencimentoDe(c, hoje), ...situacaoDe(c, hoje) }));
+    return {
+      entradas: mes.entradas,
+      gastos: mes.gastos,
+      saldo: saldoAtual(transacoes, contas, carteira ?? null),
+      aPagarNoMes: comData.filter((x) => !x.conta.paid && x.vencimento <= fimDoMes).reduce((s, x) => s + x.conta.amount, 0),
+      abertas: comData.filter((x) => !x.conta.paid).sort((a, b) => a.vencimento.localeCompare(b.vencimento)),
+      pagas: comData.filter((x) => x.conta.paid).sort((a, b) => b.vencimento.localeCompare(a.vencimento)),
     };
-    const salvo = await executar(
-      () => billsApi.update(editingBillId, dados),
-      { erro: t("erroAoSalvar") }
-    );
-    if (salvo === null) return;
-    setBills(bills.map(b => b.id === editingBillId ? { ...b, ...dados } : b));
-    setEditingBillId(null);
-  };
+  }, [transacoes, contas, carteira, hoje]);
 
-  const cancelEditBill = () => { setEditingBillId(null); };
+  const alternarPaga = (conta: Bill) =>
+    executar(() => billsApi.update(conta.id, { paid: !conta.paid }), { erro: t("erroAoSalvar") });
 
-  const startEditingTransaction = (t: Transaction) => {
-    setEditingTransactionId(t.id);
-    setEditingTransaction({ description: t.description, amount: t.amount.toString(), type: t.type, category: t.category ?? "Outros" });
-  };
-
-  const saveEditTransaction = async () => {
-    const valor = parseFloat(editingTransaction.amount);
-    if (!editingTransaction.description.trim() || !Number.isFinite(valor) || !editingTransactionId) return;
-    const dados = {
-      description: editingTransaction.description.trim(),
-      category: editingTransaction.category,
-      amount: valor,
-      type: editingTransaction.type,
-    };
-    const salvo = await executar(
-      () => transactionsApi.update(editingTransactionId, dados),
-      { erro: t("erroAoSalvar") }
-    );
-    if (salvo === null) return;
-    setTransactions(transactions.map(tr => tr.id === editingTransactionId ? { ...tr, ...dados } : tr));
-    setEditingTransactionId(null);
-  };
-
-  const cancelEditTransaction = () => { setEditingTransactionId(null); };
-
-  const paidBills = bills.filter(b => b.paid).reduce((sum, b) => sum + b.amount, 0);
-  // Só o que vence até o fim deste mês (e o que já venceu): com parcelas e
-  // contas fixas importadas, "tudo que falta pagar" somaria o ano inteiro.
-  const fimDoMes = `${dayKey().slice(0, 7)}-31`;
-  const pendingBills = bills.filter(b => !b.paid && vencimentoDe(b) <= fimDoMes).reduce((sum, b) => sum + b.amount, 0);
-  const totalIncome = transactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
-  const expensesFromTransactions = transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
-  const totalExpenses = expensesFromTransactions + paidBills;
-  // Com o saldo informado no computador ("Ajustar saldo"), o celular mostra o mesmo valor.
-  const balance = carteira
-    ? saldoAtual(transactions.map((tr) => ({ ...tr, criadaEm: paraData((tr as { createdAt?: unknown }).createdAt) })), bills, carteira)
-    : totalIncome - totalExpenses;
-  // A pagar primeiro, pela data de vencimento; as pagas por último.
-  const billsOrdenadas = [...bills].sort((a, b) => Number(a.paid) - Number(b.paid) || vencimentoDe(a).localeCompare(vencimentoDe(b)));
-  const quandoVence = (bill: Bill) =>
-    bill.vencimento ? `${bill.vencimento.slice(8)}/${bill.vencimento.slice(5, 7)}` : `${t("financesDay")} ${bill.dueDate}`;
+  const fechar = () => setDialogo(null);
+  const lista = verPagas ? d.pagas : d.abertas;
 
   return (
     <div className="glass-card glass-card-hover rounded-xl p-5 animate-fade-in" style={{ animationDelay: "180ms" }}>
@@ -174,197 +73,171 @@ export function FinancesWidget() {
         <Wallet className="w-5 h-5 text-widget-finance" />
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <TrendingUp className="w-4 h-4 text-emerald-500 mx-auto mb-1" />
-          <p className="text-xs text-muted-foreground">{t("financesIncome")}</p>
-          <p className="text-sm font-semibold text-emerald-500">R$ {totalIncome.toLocaleString('pt-BR')}</p>
+      {/* Saldo (toque para ajustar) + o mês */}
+      <button
+        type="button"
+        onClick={() => setDialogo({ tipo: "saldo" })}
+        className="mb-2 flex w-full items-center justify-between gap-3 rounded-xl bg-widget-finance/10 px-4 py-3 text-left transition-colors hover:bg-widget-finance/15"
+      >
+        <span className="min-w-0">
+          <span className="block text-xs text-muted-foreground">{t("saldoAtual")}</span>
+          <span className={cn("block text-2xl font-bold tabular-nums", d.saldo < 0 && "text-rose-500")}>
+            {carteira === undefined ? "—" : reais(d.saldo)}
+          </span>
+          <span className="block text-[11px] text-muted-foreground">
+            {carteira ? t("ajustadoEm").replace("{dia}", diaMes(dayKey(new Date(carteira.definidoEm)))) : t("informarSaldo")}
+          </span>
+        </span>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-background/70 text-widget-finance">
+          <Pencil className="h-4 w-4" />
+          <span className="sr-only">{t("ajustarSaldo")}</span>
+        </span>
+      </button>
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        <div className="rounded-lg bg-secondary/50 p-3">
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-500" /> {t("entradasDoMes")}
+          </p>
+          <p className="text-sm font-semibold text-emerald-500 tabular-nums">{reais(d.entradas, false)}</p>
         </div>
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <TrendingDown className="w-4 h-4 text-rose-500 mx-auto mb-1" />
-          <p className="text-xs text-muted-foreground">{t("financesExpenses")}</p>
-          <p className="text-sm font-semibold text-rose-500">R$ {totalExpenses.toLocaleString('pt-BR')}</p>
-        </div>
-        <div className="bg-secondary/50 rounded-lg p-3 text-center">
-          <Wallet className="w-4 h-4 text-widget-finance mx-auto mb-1" />
-          <p className="text-xs text-muted-foreground">{t("financesBalance")}</p>
-          <p className={`text-sm font-semibold ${balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>R$ {balance.toLocaleString('pt-BR')}</p>
+        <div className="rounded-lg bg-secondary/50 p-3">
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <TrendingDown className="h-3.5 w-3.5 text-rose-500" /> {t("gastosDoMes")}
+          </p>
+          <p className="text-sm font-semibold text-rose-500 tabular-nums">{reais(d.gastos, false)}</p>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Anotar */}
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        {(
+          [
+            { chave: "expense", Icone: ArrowDownToLine, rotulo: t("lancarGasto"), cor: "text-rose-500 bg-rose-500/10" },
+            { chave: "income", Icone: ArrowUpToLine, rotulo: t("lancarEntrada"), cor: "text-violet-500 bg-violet-500/10" },
+            { chave: "conta", Icone: CalendarClock, rotulo: t("lancarConta"), cor: "text-amber-500 bg-amber-500/10" },
+          ] as const
+        ).map(({ chave, Icone, rotulo, cor }) => (
+          <button
+            key={chave}
+            type="button"
+            onClick={() => setDialogo(chave === "conta" ? { tipo: "conta" } : { tipo: "transacao", tipoInicial: chave })}
+            className="flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-background/40 px-2 py-2.5 text-center text-xs font-semibold transition-colors active:scale-[0.98] hover:bg-secondary/60"
+          >
+            <span className={cn("grid h-8 w-8 place-items-center rounded-lg", cor)}>
+              <Icone className="h-4 w-4" />
+            </span>
+            <span className="leading-tight">+ {rotulo}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Abas */}
       <div className="flex gap-2 mb-4">
-        <button type="button" onClick={() => setActiveTab("bills")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${activeTab === "bills" ? "bg-widget-finance text-white" : "bg-secondary/50 text-muted-foreground hover:bg-secondary"}`}>
+        <button type="button" onClick={() => setAba("bills")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${aba === "bills" ? "bg-widget-finance text-white" : "bg-secondary/50 text-muted-foreground hover:bg-secondary"}`}>
           <Receipt className="w-4 h-4" /> {t("financesBills")}
         </button>
-        <button type="button" onClick={() => setActiveTab("transactions")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${activeTab === "transactions" ? "bg-widget-finance text-white" : "bg-secondary/50 text-muted-foreground hover:bg-secondary"}`}>
+        <button type="button" onClick={() => setAba("transactions")} className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${aba === "transactions" ? "bg-widget-finance text-white" : "bg-secondary/50 text-muted-foreground hover:bg-secondary"}`}>
           <CreditCard className="w-4 h-4" /> {t("financesTransactions")}
         </button>
       </div>
 
-      {/* Bills Tab */}
-      {activeTab === "bills" && (
+      {aba === "bills" && (
         <>
-          <div className="flex items-center justify-between mb-3 p-2 bg-rose-500/10 rounded-lg">
-            <span className="text-xs text-rose-500">{t("financesPending")} {t("noMes")}:</span>
-            <span className="text-sm font-semibold text-rose-500">R$ {pendingBills.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <span className="rounded-lg bg-rose-500/10 px-2.5 py-1.5 text-xs text-rose-500">
+              {t("financesPending")} {t("noMes")}: <strong className="tabular-nums">{reais(d.aPagarNoMes)}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => setVerPagas((v) => !v)}
+              className="rounded-lg px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+            >
+              {verPagas ? t("filtroAPagar") : `${t("filtroPagas")} (${d.pagas.length})`}
+            </button>
           </div>
 
-          {showAddBill ? (
-            <div className="space-y-2 mb-3 p-3 bg-secondary/30 rounded-lg">
-              <Input placeholder="Nome da conta" value={newBill.name} onChange={(e) => setNewBill({ ...newBill, name: e.target.value })} className="bg-background/50 border-border/50 h-9" />
-              <div className="flex gap-2">
-                <Input placeholder="Valor" type="number" value={newBill.amount} onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })} className="bg-background/50 border-border/50 h-9" />
-                <Input placeholder="Dia" type="number" min="1" max="31" value={newBill.dueDate} onChange={(e) => setNewBill({ ...newBill, dueDate: e.target.value })} className="bg-background/50 border-border/50 h-9 w-20" />
-              </div>
-              <Select value={newBill.category} onValueChange={(v) => setNewBill({ ...newBill, category: v })}>
-                <SelectTrigger className="bg-background/50 border-border/50 h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Moradia">Moradia</SelectItem>
-                  <SelectItem value="Serviços">Serviços</SelectItem>
-                  <SelectItem value="Lazer">Lazer</SelectItem>
-                  <SelectItem value="Saúde">Saúde</SelectItem>
-                  <SelectItem value="Outros">Outros</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex gap-2">
-                <Button onClick={() => setShowAddBill(false)} variant="ghost" size="sm" className="flex-1">{t("cancel")}</Button>
-                <Button onClick={addBill} size="sm" className="flex-1 bg-widget-finance hover:bg-widget-finance/90">{t("add")}</Button>
-              </div>
-            </div>
-          ) : (
-            <Button onClick={() => setShowAddBill(true)} variant="ghost" size="sm" className="w-full mb-3 border border-dashed border-border hover:border-widget-finance/50">
-              <Plus className="w-4 h-4 mr-2" /> {t("financesNewBill")}
-            </Button>
-          )}
-
-          <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-            {billsOrdenadas.map((bill) => (
-              <div key={bill.id} className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 group ${bill.paid ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-secondary/50 border border-transparent hover:border-widget-finance/30'}`}>
-                {editingBillId === bill.id ? (
-                  <div className="flex-1 space-y-2">
-                    <div className="flex gap-2">
-                      <Input value={editingBill.name} onChange={(e) => setEditingBill({ ...editingBill, name: e.target.value })} className="bg-background/50 border-border/50 h-8" />
-                      <Input type="number" value={editingBill.amount} onChange={(e) => setEditingBill({ ...editingBill, amount: e.target.value })} className="bg-background/50 border-border/50 h-8 w-24" />
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <Input value={editingBill.dueDate} onChange={(e) => setEditingBill({ ...editingBill, dueDate: e.target.value })} className="bg-background/50 border-border/50 h-8 w-16" />
-                      <Select value={editingBill.category} onValueChange={(v) => setEditingBill({ ...editingBill, category: v })}>
-                        <SelectTrigger className="bg-background/50 border-border/50 h-8 flex-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Moradia">Moradia</SelectItem>
-                          <SelectItem value="Serviços">Serviços</SelectItem>
-                          <SelectItem value="Lazer">Lazer</SelectItem>
-                          <SelectItem value="Saúde">Saúde</SelectItem>
-                          <SelectItem value="Outros">Outros</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <button type="button" onClick={saveEditBill} className="p-1" aria-label={t("save")}><Check className="w-4 h-4 text-emerald-500" /></button>
-                      <button type="button" onClick={cancelEditBill} className="p-1" aria-label={t("cancel")}><X className="w-4 h-4 text-muted-foreground" /></button>
-                      </div>
-                  </div>
-                ) : (
-                  <>
-                    <button type="button" onClick={() => toggleBillPaid(bill.id)} className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${bill.paid ? 'bg-emerald-500 border-emerald-500' : 'border-muted-foreground hover:border-widget-finance'}`} aria-label={bill.paid ? t("financesMarkUnpaid") : t("financesMarkPaid")}>
-                      {bill.paid && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${bill.paid ? 'line-through text-muted-foreground' : ''}`}>{bill.name}{bill.parcela ? ` ${bill.parcela}` : ""}</p>
-                      <p className="text-xs text-muted-foreground">{quandoVence(bill)} • {bill.category}</p>
-                    </div>
-                    <span className={`text-sm font-semibold ${bill.paid ? 'text-muted-foreground' : ''}`}>R$ {bill.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    <button type="button" onClick={() => startEditingBill(bill)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1" aria-label={t("financesEditBill")}><Pencil className="w-4 h-4 text-muted-foreground hover:text-primary" /></button>
-                    <button type="button" onClick={() => deleteBill(bill.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1" aria-label={t("financesDeleteBill")}><Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" /></button>
-                  </>
+          <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+            {lista.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{verPagas ? t("nenhumaPaga") : t("nadaAPagar")}</p>}
+            {lista.map(({ conta, vencimento, situacao, dias }) => (
+              <div
+                key={conta.id}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg border p-2.5 transition-colors",
+                  conta.paid ? "border-emerald-500/20 bg-emerald-500/5" : "border-transparent bg-secondary/50"
                 )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Transactions Tab */}
-      {activeTab === "transactions" && (
-        <>
-          {showAddTransaction ? (
-            <div className="space-y-2 mb-3 p-3 bg-secondary/30 rounded-lg">
-              <Input placeholder="Descrição" value={newTransaction.description} onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })} className="bg-background/50 border-border/50 h-9" />
-              <div className="flex gap-2">
-                <Input placeholder="Valor" type="number" value={newTransaction.amount} onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })} className="bg-background/50 border-border/50 h-9" />
-                <Select value={newTransaction.type} onValueChange={(v: "income" | "expense") => setNewTransaction({ ...newTransaction, type: v })}>
-                  <SelectTrigger className="bg-background/50 border-border/50 h-9 w-32"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="income">{t("financesIncomeType")}</SelectItem>
-                    <SelectItem value="expense">{t("financesExpenseType")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Select value={newTransaction.category} onValueChange={(v: CategoriaTransacao) => setNewTransaction({ ...newTransaction, category: v })}>
-                <SelectTrigger className="bg-background/50 border-border/50 h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CATEGORIAS_TRANSACAO.map((categoria) => (
-                    <SelectItem key={categoria} value={categoria}>{categoria}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex gap-2">
-                <Button onClick={() => setShowAddTransaction(false)} variant="ghost" size="sm" className="flex-1">{t("cancel")}</Button>
-                <Button onClick={addTransaction} size="sm" className="flex-1 bg-widget-finance hover:bg-widget-finance/90">{t("add")}</Button>
-              </div>
-            </div>
-          ) : (
-            <Button onClick={() => setShowAddTransaction(true)} variant="ghost" size="sm" className="w-full mb-3 border border-dashed border-border hover:border-widget-finance/50">
-              <Plus className="w-4 h-4 mr-2" /> {t("financesNewTransaction")}
-            </Button>
-          )}
-
-          <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-            {transactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 group">
-                {editingTransactionId === transaction.id ? (
-                  <div className="flex-1 flex items-center gap-2">
-                    <Input value={editingTransaction.description} onChange={(e) => setEditingTransaction({ ...editingTransaction, description: e.target.value })} className="bg-background/50 border-border/50 h-8 flex-1" />
-                    <Input type="number" value={editingTransaction.amount} onChange={(e) => setEditingTransaction({ ...editingTransaction, amount: e.target.value })} className="bg-background/50 border-border/50 h-8 w-24" />
-                    <Select value={editingTransaction.type} onValueChange={(v: "income" | "expense") => setEditingTransaction({ ...editingTransaction, type: v })}>
-                      <SelectTrigger className="bg-background/50 border-border/50 h-8 w-28"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="income">{t("financesIncomeType")}</SelectItem>
-                        <SelectItem value="expense">{t("financesExpenseType")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={editingTransaction.category} onValueChange={(v: CategoriaTransacao) => setEditingTransaction({ ...editingTransaction, category: v })}>
-                      <SelectTrigger className="bg-background/50 border-border/50 h-8 w-32"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIAS_TRANSACAO.map((categoria) => (
-                          <SelectItem key={categoria} value={categoria}>{categoria}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <button type="button" onClick={saveEditTransaction} className="p-1" aria-label={t("save")}><Check className="w-4 h-4 text-emerald-500" /></button>
-                    <button type="button" onClick={cancelEditTransaction} className="p-1" aria-label={t("cancel")}><X className="w-4 h-4 text-muted-foreground" /></button>
-                  </div>
-                ) : (
-                  <>
-                    <div className={`p-2 rounded-lg ${transaction.type === 'income' ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`}>
-                      {transaction.type === "income" ? <TrendingUp className="w-4 h-4 text-emerald-500" /> : <TrendingDown className="w-4 h-4 text-rose-500" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{transaction.description}</p>
-                      <p className="text-xs text-muted-foreground">{dataCurta(transaction.date, locale)} • {transaction.category ?? "Outros"}</p>
-                    </div>
-                    <span className={`text-sm font-semibold ${transaction.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {transaction.type === 'income' ? '+' : '-'} R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              >
+                <span
+                  className={cn(
+                    "grid h-11 w-11 shrink-0 place-items-center rounded-lg text-center leading-none",
+                    situacao === "vencida" || situacao === "hoje" ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-background/70"
+                  )}
+                >
+                  <span>
+                    <span className="block text-base font-bold tabular-nums">{Number(vencimento.slice(8))}</span>
+                    <span className="block text-[9px] font-semibold uppercase text-muted-foreground">
+                      {new Date(`${vencimento}T12:00:00`).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}
                     </span>
-                    <button type="button" onClick={() => startEditingTransaction(transaction)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1" aria-label={t("financesEditTransaction")}><Pencil className="w-4 h-4 text-muted-foreground hover:text-primary" /></button>
-                    <button type="button" onClick={() => deleteTransaction(transaction.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1" aria-label={t("financesDeleteTransaction")}><Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" /></button>
-                  </>
-                )}
+                  </span>
+                </span>
+                <button type="button" onClick={() => setDialogo({ tipo: "conta", inicial: conta })} className="min-w-0 flex-1 text-left">
+                  <p className={cn("truncate text-sm font-medium", conta.paid && "text-muted-foreground line-through")}>{conta.name}</p>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px]">
+                    <span className={cn("rounded px-1 py-px font-semibold", ESTILO_TIPO[conta.tipo ?? "avulsa"])}>{rotulos.tipo(conta)}</span>
+                    {!conta.paid && <span className={cn("rounded px-1 py-px font-semibold", ESTILO_SITUACAO[situacao])}>{rotulos.situacao(situacao, dias)}</span>}
+                  </p>
+                </button>
+                <span className={cn("shrink-0 text-sm font-semibold tabular-nums", conta.paid && "text-muted-foreground")}>{reais(conta.amount)}</span>
+                <button
+                  type="button"
+                  onClick={() => alternarPaga(conta)}
+                  aria-label={conta.paid ? t("financesMarkUnpaid") : t("financesMarkPaid")}
+                  className={cn(
+                    "grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 transition-colors",
+                    conta.paid ? "border-emerald-500 bg-emerald-500 text-white" : "border-muted-foreground/40 text-transparent hover:border-emerald-500 hover:text-emerald-500"
+                  )}
+                >
+                  <Check className="h-4 w-4" strokeWidth={3} />
+                </button>
               </div>
             ))}
           </div>
         </>
       )}
+
+      {aba === "transactions" && (
+        <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+          {transacoes.map((tr) => (
+            <button
+              key={tr.id}
+              type="button"
+              onClick={() => setDialogo({ tipo: "transacao", inicial: tr })}
+              className="flex w-full items-center gap-3 rounded-lg bg-secondary/50 p-3 text-left transition-colors hover:bg-secondary"
+            >
+              <span className={`p-2 rounded-lg ${tr.type === "income" ? "bg-emerald-500/10" : "bg-rose-500/10"}`}>
+                {tr.type === "income" ? <TrendingUp className="w-4 h-4 text-emerald-500" /> : <TrendingDown className="w-4 h-4 text-rose-500" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{tr.description}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {diaMes(tr.date)} • {tr.category ?? "Outros"}
+                </span>
+              </span>
+              <span className={`shrink-0 text-sm font-semibold tabular-nums ${tr.type === "income" ? "text-emerald-500" : "text-rose-500"}`}>
+                {tr.type === "income" ? "+" : "-"} {reais(tr.amount)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <TransacaoDialog
+        aberto={dialogo?.tipo === "transacao"}
+        inicial={dialogo?.tipo === "transacao" ? dialogo.inicial : undefined}
+        tipoInicial={dialogo?.tipo === "transacao" ? dialogo.tipoInicial : undefined}
+        onFechar={fechar}
+      />
+      <ContaDialog aberto={dialogo?.tipo === "conta"} inicial={dialogo?.tipo === "conta" ? dialogo.inicial : undefined} onFechar={fechar} />
+      <AjustarSaldoDialog aberto={dialogo?.tipo === "saldo"} onFechar={fechar} carteira={carteira} saldoCalculado={d.saldo} />
     </div>
   );
 }

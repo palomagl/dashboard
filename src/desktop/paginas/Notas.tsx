@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { createContext, useContext, useState, type CSSProperties } from "react";
 import { Check, Pencil, StickyNote, Trash2, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -63,8 +63,9 @@ function estiloPapel(classe: string, giro = 0): CSSProperties {
 
 function Cores({ valor, onMudar }: { valor: string; onMudar: (classe: string) => void }) {
   const { t } = useLocale();
+  const { compacto } = useFormato();
   return (
-    <div className="flex items-center gap-1.5" role="radiogroup" aria-label={t("cor")}>
+    <div className={cn("flex items-center", compacto ? "gap-1" : "gap-1.5")} role="radiogroup" aria-label={t("cor")}>
       {PAPEIS.map((p) => (
         <button
           key={p.classe}
@@ -74,7 +75,8 @@ function Cores({ valor, onMudar }: { valor: string; onMudar: (classe: string) =>
           aria-label={t(p.nome as "corAmarelo")}
           onClick={() => onMudar(p.classe)}
           className={cn(
-            "h-5 w-5 rounded-full border border-black/10 transition-transform",
+            "rounded-full border border-black/10 transition-transform",
+            compacto ? "h-4 w-4" : "h-5 w-5",
             valor === p.classe ? "scale-110 ring-2 ring-[#3a2f1f]/50 ring-offset-1 ring-offset-transparent" : "hover:scale-110"
           )}
           style={{ backgroundColor: p.papel }}
@@ -85,13 +87,30 @@ function Cores({ valor, onMudar }: { valor: string; onMudar: (classe: string) =>
 }
 
 const TAMANHO = "w-[208px] min-h-[196px] xl:w-[222px] wide:w-[236px]";
+/** No celular: duas colunas que ocupam a largura toda, papel um pouco menor. */
+const TAMANHO_CELULAR = "w-full min-h-[150px]";
+
+const Compacto = createContext(false);
+
+function useFormato() {
+  const compacto = useContext(Compacto);
+  return {
+    compacto,
+    tamanho: compacto ? TAMANHO_CELULAR : TAMANHO,
+    espaco: compacto ? "px-4 pb-3 pt-7" : "px-5 pb-4 pt-8",
+    letra: compacto ? "text-[19px] leading-[1.15]" : "text-[21px] leading-[1.2]",
+  };
+}
 
 function PostIt({ nota }: { nota: NotaAoVivo }) {
   const { t, locale } = useLocale();
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(nota.content);
   const [cor, setCor] = useState(nota.color);
-  const { giro, alfinete } = sorteio(nota.id);
+  const { giro: giroCheio, alfinete } = sorteio(nota.id);
+  const { compacto, tamanho, espaco, letra } = useFormato();
+  // No celular, menos torto: com duas colunas, inclinar muito encosta no vizinho.
+  const giro = compacto ? giroCheio * 0.5 : giroCheio;
 
   const abrir = () => {
     setTexto(nota.content);
@@ -108,9 +127,10 @@ function PostIt({ nota }: { nota: NotaAoVivo }) {
   return (
     <article
       className={cn(
-        "group relative flex flex-col rounded-[3px] px-5 pb-4 pt-8 transition-[transform,box-shadow] duration-200 animate-fade-in",
+        "group relative flex flex-col rounded-[3px] transition-[transform,box-shadow] duration-200 animate-fade-in",
         "hover:z-10 hover:!rotate-0 hover:scale-[1.04] focus-within:z-10 focus-within:!rotate-0",
-        TAMANHO
+        espaco,
+        tamanho
       )}
       style={estiloPapel(editando ? cor : nota.color, editando ? 0 : giro)}
     >
@@ -126,7 +146,10 @@ function PostIt({ nota }: { nota: NotaAoVivo }) {
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) salvar();
               if (e.key === "Escape") setEditando(false);
             }}
-            className="min-h-[120px] flex-1 resize-none border-0 bg-white/40 p-2 font-script text-[21px] leading-[1.2] text-[#3a2f1f] shadow-none focus-visible:ring-1 focus-visible:ring-[#3a2f1f]/30"
+            className={cn(
+              "min-h-[110px] flex-1 resize-none border-0 bg-white/40 p-2 font-script text-[#3a2f1f] shadow-none focus-visible:ring-1 focus-visible:ring-[#3a2f1f]/30",
+              letra
+            )}
           />
           <div className="mt-2 flex items-center justify-between gap-1">
             <Cores valor={cor} onMudar={setCor} />
@@ -142,14 +165,24 @@ function PostIt({ nota }: { nota: NotaAoVivo }) {
         </>
       ) : (
         <>
-          <p className="flex-1 whitespace-pre-wrap break-words font-script text-[21px] leading-[1.2]">{nota.content}</p>
+          <p
+            className={cn("flex-1 whitespace-pre-wrap break-words font-script", letra, compacto && "cursor-text")}
+            onClick={compacto ? abrir : undefined}
+          >
+            {nota.content}
+          </p>
           <div className="mt-3 flex h-7 items-center justify-between">
             {nota.criadaEm && (
               <span className="text-[11px] font-medium text-[#3a2f1f]/55">
                 {nota.criadaEm.toLocaleDateString(locale === "pt" ? "pt-BR" : "en-US", { day: "numeric", month: "short" })}
               </span>
             )}
-            <div className="ml-auto flex opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+            <div
+              className={cn(
+                "ml-auto flex transition-opacity group-focus-within:opacity-100 group-hover:opacity-100",
+                compacto ? "opacity-70" : "opacity-0"
+              )}
+            >
               <BotaoIcone rotulo={t("notesEdit")} onClick={abrir} className="h-7 w-7 text-[#3a2f1f]/70 hover:bg-black/5 hover:text-[#3a2f1f]">
                 <Pencil className="h-3.5 w-3.5" />
               </BotaoIcone>
@@ -169,6 +202,7 @@ function NovoPostIt() {
   const { t } = useLocale();
   const [texto, setTexto] = useState("");
   const [cor, setCor] = useState(PAPEIS[0].classe);
+  const { tamanho, espaco, letra } = useFormato();
 
   const colar = async () => {
     if (!texto.trim()) return;
@@ -177,7 +211,7 @@ function NovoPostIt() {
   };
 
   return (
-    <div className={cn("relative flex flex-col rounded-[3px] px-5 pb-4 pt-8", TAMANHO)} style={estiloPapel(cor)}>
+    <div className={cn("relative flex flex-col rounded-[3px]", espaco, tamanho)} style={estiloPapel(cor)}>
       <span
         aria-hidden
         className="absolute -top-2.5 left-1/2 h-6 w-[88px] -translate-x-1/2 -rotate-2 rounded-[2px] bg-white/55 shadow-sm backdrop-blur-[1px]"
@@ -188,7 +222,10 @@ function NovoPostIt() {
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && (e.ctrlKey || e.metaKey) && colar()}
-        className="min-h-[112px] flex-1 resize-none border-0 bg-transparent p-0 font-script text-[21px] leading-[1.2] text-[#3a2f1f] shadow-none placeholder:text-[#3a2f1f]/45 focus-visible:ring-0"
+        className={cn(
+          "min-h-[96px] flex-1 resize-none border-0 bg-transparent p-0 font-script text-[#3a2f1f] shadow-none placeholder:text-[#3a2f1f]/45 focus-visible:ring-0",
+          letra
+        )}
       />
       <div className="mt-2 flex items-center justify-between gap-2">
         <Cores valor={cor} onMudar={setCor} />
@@ -206,23 +243,27 @@ function NovoPostIt() {
   );
 }
 
-export default function NotasDesktop() {
+/** O mural com os post-its. `compacto` = celular (duas colunas). */
+export function MuralNotas({ compacto = false }: { compacto?: boolean }) {
   const { t } = useLocale();
   const { itens, pronto } = useNotas();
 
   return (
-    <>
-      <Cabecalho
-        icone={<IconePagina Icone={StickyNote} />}
-        titulo={t("tabNotas")}
-        subtitulo={`${itens.length} ${t("notesSubtitle")} · ${t("notasSubtitulo")}`}
-      />
-
-      <section aria-label={t("muralNotas")} className="mural rounded-[28px] p-6 wide:p-8">
+    <Compacto.Provider value={compacto}>
+      <section
+        aria-label={t("muralNotas")}
+        className={cn("mural", compacto ? "min-h-[60vh] rounded-3xl p-5" : "rounded-[28px] p-6 wide:p-8")}
+      >
         {!pronto ? (
           <Esqueleto linhas={3} />
         ) : (
-          <div className="flex flex-wrap content-start items-start gap-x-6 gap-y-7 wide:gap-x-8 wide:gap-y-9">
+          <div
+            className={
+              compacto
+                ? "grid grid-cols-2 items-start gap-x-4 gap-y-6"
+                : "flex flex-wrap content-start items-start gap-x-6 gap-y-7 wide:gap-x-8 wide:gap-y-9"
+            }
+          >
             <NovoPostIt />
             {itens.map((n) => (
               <PostIt key={n.id} nota={n} />
@@ -233,6 +274,22 @@ export default function NotasDesktop() {
           <p className="mt-6 text-center font-script text-2xl text-[#6b5337] dark:text-[#d9c3a3]">{t("muralVazio")}</p>
         )}
       </section>
+    </Compacto.Provider>
+  );
+}
+
+export default function NotasDesktop() {
+  const { t } = useLocale();
+  const { itens } = useNotas();
+
+  return (
+    <>
+      <Cabecalho
+        icone={<IconePagina Icone={StickyNote} />}
+        titulo={t("tabNotas")}
+        subtitulo={`${itens.length} ${t("notesSubtitle")} · ${t("notasSubtitulo")}`}
+      />
+      <MuralNotas />
     </>
   );
 }
